@@ -72,9 +72,32 @@ class UnitConverter:
             self.ureg.define(unit_def)
 
     @classmethod
-    def unit_convert(cls, data=1, unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
+    def unit_convert_helper(cls, data=1, unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
         uc = cls.get_instance()
-        """return data converted from unit_from to unit_to"""
+
+        # These next two if statements are used when we need to parse units from a dataframe. This deals with input units of mass.
+        if unit_from_num == 'from_dataframe':
+            unit_from_num = data.index.get_level_values('unit')[0]
+            input_dimensionality = uc.ureg.Quantity(unit_from_num).dimensionality
+            if input_dimensionality == uc.ureg.kilogram.dimensionality:
+                # by convention, 1 mmbtu is equal to one tonne
+                try:
+                    factor = uc.ureg.parse_expression(unit_from_num).to('tonne').magnitude
+                except:
+                    pdb.set_trace()
+                data = data * factor
+                unit_from_num = 'mmBtu'
+
+
+        if unit_from_den == 'from_dataframe':
+            unit_from_den = data.index.get_level_values('unit')[0]
+            input_dimensionality = uc.ureg.Quantity(unit_from_num).dimensionality
+            if input_dimensionality == uc.ureg.kilogram.dimensionality:
+                # by convention, 1 mmbtu is equal to one tonne
+                factor = uc.ureg.parse_expression(unit_from_num).to('tonne').magnitude
+                data = data / factor
+                unit_from_num = 'mmBtu'
+
         # This is used to cancel out units that are the same but may not be recognized by the ureg
         if unit_from_num == unit_to_num:
             unit_from_num = unit_to_num = None
@@ -96,6 +119,18 @@ class UnitConverter:
             except:
                 pdb.set_trace()
             return (1. / data) * factor
+
+    @classmethod
+    def unit_convert(cls, data=1, unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
+        """return data converted from unit_from to unit_to"""
+        if unit_from_num == 'from_dataframe' or unit_from_den == 'from_dataframe':
+            assert type(data) is pd.DataFrame and 'unit' in data.index.names, 'Data must be a dataframe and "unit" must be in index'
+            data = data.groupby(level='unit').apply(cls.unit_convert_helper, unit_from_num=unit_from_num, unit_from_den=unit_from_den, unit_to_num=unit_to_num, unit_to_den=unit_to_den)
+            data = data.droplevel('unit')
+        else:
+            data = cls.unit_convert_helper(data, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
+
+        return data
 
     def exchange_rate(self, year, currency_from, currency_to=None):
         """calculate exchange rate between two specified currencies"""

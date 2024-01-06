@@ -53,6 +53,7 @@ class PathwaysModel(object):
             self.demand.output_subsector_electricity_profiles()
 
         if self.demand_solved and export_results:
+            self.demand.aggregate_results()
             export = ep2rio.RioExport(self)
             export.write_all()
             self.export_result_to_csv()

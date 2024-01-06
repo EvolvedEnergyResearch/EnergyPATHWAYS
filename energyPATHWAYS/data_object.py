@@ -72,7 +72,7 @@ class DataObject(CsvDataObject):
         return timeseries
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year',
-                         time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing'):
+                         time_index=None, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing'):
         if time_index is None:
             time_index = cfg.years
         interpolation_method = self.interpolation_method if interpolation_method is 'missing' else interpolation_method
@@ -188,7 +188,7 @@ class DataObject(CsvDataObject):
 
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
               time_index=None, fill_timeseries=True, interpolation_method='missing', extrapolation_method='missing',
-              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True, driver_geography=None, missing_intensity_geos=False):
+              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=None, upper=None, filter_geo=True, driver_geography=None, missing_intensity_geos=False):
         """ Map data to drivers and geography
         Args:
             map_from (string): starting variable name (defaults to 'raw_values')
@@ -261,8 +261,6 @@ class DataObject(CsvDataObject):
                     levels = [x for x in level_set if x!=driver_geography]
                 else:
                     levels = [x for x in level_set]
-                #if 'demand_technology' in getattr(self,map_to).index.names and 'Cordwood Stoves' in getattr(self,map_to).index.get_level_values('demand_technology'):
-                    #pdb.set_trace()
                 if fill_value is np.nan:
                     df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
                                                expandable=(True, True), collapsible=(False, False),

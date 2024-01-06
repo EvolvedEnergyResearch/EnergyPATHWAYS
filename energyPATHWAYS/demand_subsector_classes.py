@@ -58,6 +58,15 @@ class EnergyDemand(schema.DemandEnergyDemands, SubDemand):
         super(EnergyDemand, self).__init__(subsector=name, scenario=scenario)
         self.init_from_db(name, scenario)
 
+    def get_energy_unit(self):
+        uc = UnitConverter.get_instance()
+        units = self.raw_values.index.get_level_values('unit').unique()
+        for unit in units:
+            if uc.ureg.Quantity(unit).dimensionality == uc.ureg.joule.dimensionality:
+                return unit
+
+        raise ValueError('Unable to determine energy unit for subsector %s' % self.name)
+
 class DemandStock(schema.DemandStock, Stock):
     def __init__(self, name, drivers, scenario=None):
         super(DemandStock, self).__init__(subsector=name, scenario=scenario)

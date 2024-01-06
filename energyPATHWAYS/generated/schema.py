@@ -72,8 +72,8 @@ class DemandEnergyDemands(DataObject):
              "driver_denominator_2", "extrapolation_growth", "extrapolation_method",
              "final_energy_index", "geography", "geography_map_key", "input_type",
              "interpolation_method", "is_stock_dependent", "other_index_1", "other_index_2",
-             "subsector", "unit"]
-    _df_cols = ["gau", "demand_technology", "value", "oth_2", "oth_1", "year", "final_energy",
+             "subsector"]
+    _df_cols = ["unit", "gau", "demand_technology", "value", "oth_2", "oth_1", "year", "final_energy",
              "sensitivity"]
     _df_filters = []
     _data_table_name = None
@@ -100,14 +100,12 @@ class DemandEnergyDemands(DataObject):
         self.other_index_1 = None
         self.other_index_2 = None
         self.subsector = subsector
-        self.unit = None
 
     def set_args(self, scenario, demand_technology_index=None, driver_1=None, driver_2=None, driver_3=None,
                  driver_denominator_1=None, driver_denominator_2=None, extrapolation_growth=None,
                  extrapolation_method=None, final_energy_index=None, geography=None,
                  geography_map_key=None, input_type=None, interpolation_method=None,
-                 is_stock_dependent=None, other_index_1=None, other_index_2=None, subsector=None,
-                 unit=None):
+                 is_stock_dependent=None, other_index_1=None, other_index_2=None, subsector=None):
         self.check_scenario(scenario)
 
         self.demand_technology_index = demand_technology_index
@@ -127,13 +125,12 @@ class DemandEnergyDemands(DataObject):
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.subsector = subsector
-        self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (subsector, is_stock_dependent, input_type, unit, driver_denominator_1,
-         driver_denominator_2, driver_1, driver_2, driver_3, geography, final_energy_index,
-         demand_technology_index, other_index_1, other_index_2, interpolation_method,
-         extrapolation_method, extrapolation_growth, geography_map_key,) = tup
+        (subsector, is_stock_dependent, input_type, driver_denominator_1, driver_denominator_2,
+         driver_1, driver_2, driver_3, geography, final_energy_index, demand_technology_index,
+         other_index_1, other_index_2, interpolation_method, extrapolation_method,
+         extrapolation_growth, geography_map_key,) = tup
 
         self.set_args(scenario, demand_technology_index=demand_technology_index, driver_1=driver_1, driver_2=driver_2,
                   driver_3=driver_3, driver_denominator_1=driver_denominator_1,
@@ -141,7 +138,7 @@ class DemandEnergyDemands(DataObject):
                   extrapolation_method=extrapolation_method, final_energy_index=final_energy_index,
                   geography=geography, geography_map_key=geography_map_key, input_type=input_type,
                   interpolation_method=interpolation_method, is_stock_dependent=is_stock_dependent,
-                  other_index_1=other_index_1, other_index_2=other_index_2, subsector=subsector, unit=unit)
+                  other_index_1=other_index_1, other_index_2=other_index_2, subsector=subsector)
 
 class DemandEnergyEfficiencyMeasures(DataObject):
     _instances_by_key = {}
@@ -150,8 +147,8 @@ class DemandEnergyEfficiencyMeasures(DataObject):
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "input_type",
              "interpolation_method", "lifetime_variance", "max_lifetime", "mean_lifetime",
              "min_lifetime", "name", "other_index_1", "other_index_2", "stock_decay_function",
-             "subsector", "unit"]
-    _df_cols = ["gau", "value", "oth_2", "oth_1", "year", "final_energy"]
+             "subsector"]
+    _df_cols = ["unit", "gau", "value", "oth_2", "oth_1", "year", "final_energy"]
     _df_filters = []
     _data_table_name = None
 
@@ -174,12 +171,11 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.other_index_2 = None
         self.stock_decay_function = None
         self.subsector = None
-        self.unit = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None, input_type=None,
                  interpolation_method=None, lifetime_variance=None, max_lifetime=None, mean_lifetime=None,
                  min_lifetime=None, name=None, other_index_1=None, other_index_2=None,
-                 stock_decay_function=None, subsector=None, unit=None):
+                 stock_decay_function=None, subsector=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -196,10 +192,9 @@ class DemandEnergyEfficiencyMeasures(DataObject):
         self.other_index_2 = other_index_2
         self.stock_decay_function = stock_decay_function
         self.subsector = subsector
-        self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, subsector, input_type, unit, geography, other_index_1, other_index_2,
+        (name, subsector, input_type, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, stock_decay_function,
          min_lifetime, max_lifetime, mean_lifetime, lifetime_variance,) = tup
 
@@ -208,7 +203,7 @@ class DemandEnergyEfficiencyMeasures(DataObject):
                   lifetime_variance=lifetime_variance, max_lifetime=max_lifetime,
                   mean_lifetime=mean_lifetime, min_lifetime=min_lifetime, name=name,
                   other_index_1=other_index_1, other_index_2=other_index_2,
-                  stock_decay_function=stock_decay_function, subsector=subsector, unit=unit)
+                  stock_decay_function=stock_decay_function, subsector=subsector)
 
 class DemandEnergyEfficiencyMeasuresCost(DataObject):
     _instances_by_key = {}
@@ -427,8 +422,8 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
     _table_name = "DemandFuelSwitchingMeasuresImpact"
     _key_col = 'parent'
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "input_type",
-             "interpolation_method", "other_index_1", "other_index_2", "parent", "unit"]
-    _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
+             "interpolation_method", "other_index_1", "other_index_2", "parent"]
+    _df_cols = ["unit", "gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
 
@@ -445,10 +440,9 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
         self.other_index_1 = None
         self.other_index_2 = None
         self.parent = parent
-        self.unit = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None, input_type=None,
-                 interpolation_method=None, other_index_1=None, other_index_2=None, parent=None, unit=None):
+                 interpolation_method=None, other_index_1=None, other_index_2=None, parent=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -459,15 +453,14 @@ class DemandFuelSwitchingMeasuresImpact(DataObject):
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.parent = parent
-        self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (parent, input_type, unit, geography, other_index_1, other_index_2, interpolation_method,
+        (parent, input_type, geography, other_index_1, other_index_2, interpolation_method,
          extrapolation_method, extrapolation_growth,) = tup
 
         self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
                   geography=geography, input_type=input_type, interpolation_method=interpolation_method,
-                  other_index_1=other_index_1, other_index_2=other_index_2, parent=parent, unit=unit)
+                  other_index_1=other_index_1, other_index_2=other_index_2, parent=parent)
 
 class DemandSales(DataObject):
     _instances_by_key = {}

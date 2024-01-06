@@ -97,9 +97,9 @@ class RioExport(object):
         Output.write(exo_demand, "EXO_DEMAND.csv", self.base_path, compression='gzip', index=False, lower_case=True)
 
     def get_blend_exo_demand(self):
-        df = self.demand.outputs.d_energy.groupby(level=['year','sector','subsector',GeoMapper.demand_primary_geography,'final_energy']).sum()
+        df = self.demand.outputs.d_energy.groupby(level=['year','sector','subsector',GeoMapper.demand_primary_geography,'final_energy', 'unit']).sum()
         # subset df for just the rio run years
-        df = df.loc[(cfg.rio_years, slice(None), slice(None), slice(None), slice(None)),:]
+        df = df.loc[(cfg.rio_years, slice(None), slice(None), slice(None), slice(None), slice(None)),:]
         final_energy = util.table_data('FinalEnergy')[['name', 'blend_group']].set_index('name').to_dict()['blend_group']
 
         feu = df.index.get_level_values('final_energy').unique()
@@ -111,22 +111,16 @@ class RioExport(object):
         df['blend'] = [final_energy.get(x, None) for x in df.index.get_level_values('final_energy')]
         df = df[(df['blend'].notnull()).values]
         df = df.set_index('blend', append=True)
-        df = df.groupby(level=['year','sector','subsector',GeoMapper.demand_primary_geography,'blend']).sum()
+        df = df.groupby(level=['year','sector','subsector',GeoMapper.demand_primary_geography,'blend','unit']).sum()
 
         df_electricity = df.xs('electricity', level='blend', drop_level=False)
         df_electricity *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num='GWh')
         df_electricity = Output.clean_rio_df(df_electricity)
         df_electricity['unit'] = 'gigawatt_hour'
 
-        # get the blends that are not 'electricity'
+        # get the blends that are not 'electricity', these already have units
         df_non_electricity = df.drop('electricity', level='blend')
-        df_non_electricity *= UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit,unit_to_num=cfg.rio_standard_energy_unit)
         df_non_electricity = Output.clean_rio_df(df_non_electricity)
-
-        units = util.table_data('FinalEnergy')[['blend_group', 'unit_type']]
-        units['unit'] = [self.rio_unit_lookup(unit_type) for unit_type in units['unit_type']]
-        units_dict = units.set_index('blend_group').to_dict()['unit']
-        df_non_electricity['unit'] = [units_dict[x] for x in df_non_electricity['blend'].values]
 
         # special case where we reverse the sign when exporting to RIO for some blends
         reverse_sign = util.table_data('FinalEnergy')[['blend_group', 'reverse_sign_EP2RIO']].drop_duplicates()

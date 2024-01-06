@@ -640,7 +640,7 @@ class Subsector(schema.DemandSubsectors):
             if self.stock.demand_stock_unit_type == 'equipment':
                 # service demand unit is equal to the energy demand unit for equipment stocks
                 # where no additional service demand information is given in the form of stock units
-                service_demand_unit = self.override_service_demand_unit or self.energy_demand.unit
+                service_demand_unit = self.override_service_demand_unit or self.energy_demand.get_energy_unit()
                 self.add_technologies(service_demand_unit , self.stock.time_unit)
             else:
                 # service demand unit is equal to the stock unit for stock input types
@@ -723,8 +723,28 @@ class Subsector(schema.DemandSubsectors):
             # a subsector type link would be something like building shell, which does not have an energy demand
             if self.sub_type != 'link':
                 df = copy.deepcopy(self.energy_forecast)
-                df['unit'] = cfg.calculation_energy_unit
+
+                def return_unit(unit_type):
+                    if unit_type == 'energy':
+                        return cfg.calculation_energy_unit
+                    elif unit_type == 'mass':
+                        return 'tonne'
+                    else:
+                        raise ValueError("unit type {} not recognized".format(unit_type))
+
+                def return_unit_mult(unit_type):
+                    if unit_type == 'energy':
+                        return 1
+                    elif unit_type == 'mass':
+                        return UnitConverter.get_instance().unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num='mmBtu')
+
+                units = util.table_data('FinalEnergy')[['name', 'unit_type']]
+                units['unit'] = [return_unit(unit_type) for unit_type in units['unit_type']]
+                units['mult'] = [return_unit_mult(unit_type) for unit_type in units['unit_type']]
+                units_dict = units.set_index('name').to_dict()
+                df['unit'] = [units_dict['unit'][x] for x in df.index.get_level_values('final_energy')]
                 df.set_index('unit',append=True,inplace=True)
+                df[:] = df.values * np.vstack(np.array([units_dict['mult'][x] for x in df.index.get_level_values('final_energy')]))
                 return_array = df
             else:
                 return None
@@ -1585,13 +1605,13 @@ class Subsector(schema.DemandSubsectors):
             self.project_service_demand(service_dependent=True)
             self.project_energy_demand(service_dependent=True)
             self.energy_demand.values = UnitConverter.unit_convert(self.energy_demand.values,
-                                                          unit_from_num=self.energy_demand.unit,
+                                                          unit_from_num='from_dataframe',
                                                           unit_to_num=cfg.calculation_energy_unit)
             self.energy_forecast = self.energy_demand.values
         elif self.sub_type == 'energy':
             self.project_energy_demand()
             self.energy_demand.values = UnitConverter.unit_convert(self.energy_demand.values,
-                                                          unit_from_num=self.energy_demand.unit,
+                                                          unit_from_num='from_dataframe',
                                                           unit_to_num=cfg.calculation_energy_unit)
             self.energy_forecast = self.energy_demand.values
         elif self.sub_type == 'link':
@@ -1985,11 +2005,10 @@ class Subsector(schema.DemandSubsectors):
             level=util.ix_excl(self.stock.efficiency[other_index]['all'], exclude=exclude_index)).sum()
         eff = self.stack_and_reduce_years(eff, self.min_year,
                                           self.max_year)
-        self.energy_demand.values = UnitConverter.unit_convert(self.energy_demand.values, unit_from_num=self.energy_demand.unit,
-                                                      unit_to_num=cfg.calculation_energy_unit)
+        self.energy_demand.values = UnitConverter.unit_convert(self.energy_demand.values, unit_from_num='from_dataframe', unit_to_num=cfg.calculation_energy_unit)
         # make a copy of energy demand for use as service demand
         self.service_demand = copy.deepcopy(self.energy_demand)
-        self.service_demand.unit = self.override_service_demand_unit or self.service_demand.unit
+        self.service_demand.unit = self.override_service_demand_unit or self.service_demand.get_energy_unit()
         self.service_demand.raw_values = self.service_demand.values
         self.service_demand.int_values = util.DfOper.divi([self.service_demand.raw_values, eff])
         self.service_demand.int_values.replace([np.inf, -np.inf], 1, inplace=True)
@@ -2422,8 +2441,8 @@ class Subsector(schema.DemandSubsectors):
                 attr = 'total_unfiltered'
             if len(additional_drivers):
                 additional_drivers.append(self.stock.geo_map(attr=attr,current_geography=GeoMapper.demand_primary_geography, converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False))
-            #else:
-                #additional_drivers = self.stock.geo_map(attr=attr,current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False)
+            else:
+                additional_drivers = self.stock.geo_map(attr=attr,current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False)
         if service_dependent:
             if len(additional_drivers):
                 additional_drivers.append(self.service_demand.geo_map(attr='values_unfiltered',current_geography=GeoMapper.demand_primary_geography,converted_geography=GeoMapper.disagg_geography, current_data_type='total', inplace=False))

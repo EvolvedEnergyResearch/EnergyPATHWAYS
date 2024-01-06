@@ -98,13 +98,13 @@ def load_model(load_demand, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'D:\test system'
+    workingdir = r'C:\github\rio_db_au\example'
     os.chdir(workingdir)
-    scenario = ['test']
+    scenario = ['reference']
     run(scenario,
     load_demand   = False,
     export_results= True,
-    save_models   = False,
+    save_models   = True,
     shape_owner   = True,
     compile_mode  = False,
     )
