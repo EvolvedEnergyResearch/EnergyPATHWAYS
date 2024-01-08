@@ -1,10 +1,10 @@
 from setuptools import find_packages, setup
 
 setup(name='energyPATHWAYS',
-      version='2021.4.1',
+      version='2024.01.06',
       description='Software package for long-term energy system modeling',
       url='https://github.com/energyPATHWAYS/energyPATHWAYS',
-      author='Ben Haley, Ryan Jones, Michael Cohen, Gabe Kwok, Ana Mileva',
+      author='Ben Haley, Ryan Jones',
       packages=find_packages(),
       install_requires=['pandas',
                         'numpy',
@@ -13,9 +13,10 @@ setup(name='energyPATHWAYS',
                         'pyomo',
                         'datetime',
                         'pytz',
-                        'matplotlib', # util.py
+                        'matplotlib',
                         'click',
-                        'numpy_financial'
+                        'numpy_financial',
+                        'sphinx-rtd-theme',
                         ],
       extras_require={'documentation': ["Sphinx"],
                       },

@@ -1,8 +1,7 @@
 # EnergyPATHWAYS
 
-Requires the csvdb package found here: https://github.com/EvolvedEnergyResearch/csvdb
+The EnergyPATHWAYS model is a comprehensive energy accounting and analysis framework specifically designed to examine large-scale energy system transformations. It represents service demands, energy demands, stocks of energy consuming technologies, and how these might change under different assumed energy futures. EnergyPATHWAYS projects subsector energy demands based on explicit user decisions about technology adoption (e.g. electric vehicle adoption) and activity levels (e.g. reduced VMTs).
 
-Run the setup file:
-	Typing “cmd” into the address bar in the EnergyPATHWAYS folder to open a command prompt
-	Typing “python setup.py develop” to run the setup file contained in that folder
-	
+**[User guide](https://energypathways.readthedocs.io/)**
+
+**EnergyPATHWAYS requires the csvdb package found [here](https://github.com/EvolvedEnergyResearch/csvdb).**

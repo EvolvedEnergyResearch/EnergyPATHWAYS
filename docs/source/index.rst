@@ -12,9 +12,8 @@ EnergyPATHWAYS
    introduction
    setup
    interface
-   outputs
    database
-   cookbook
+   outputs
    methodology
 
 ..

@@ -2,68 +2,100 @@
 User Interface
 ====================
 
-Starting a run
+Tour of the user interface:
 --------------
 
+Interface Overview
+==================
+
 .. raw:: html
 
     <div style>
-		<iframe width="560" height="315" src="https://www.youtube.com/embed/XUrZwRJWyw0" frameborder="0" allowfullscreen></iframe>
+		<iframe width="560" height="315" src="https://youtu.be/eC71ub9TSSg" frameborder="0" allowfullscreen></iframe>
     </div>
 
-Creating a new run
-------------------
+Configuration Options
+=====================
 
 .. raw:: html
 
     <div style>
-		<iframe width="560" height="315" src="https://www.youtube.com/embed/XUrZwRJWyw0" frameborder="0" allowfullscreen></iframe>
+		<iframe width="560" height="315" src="https://youtu.be/cRrxK1UJHKs" frameborder="0" allowfullscreen></iframe>
+    </div>
+
+Scenarios and Sensitivities
+===========================
+
+.. raw:: html
+
+    <div style>
+		<iframe width="560" height="315" src="https://youtu.be/oY28yLv_0fI" frameborder="0" allowfullscreen></iframe>
+    </div>
+
+Launching EnergyPATHWAYS
+========================
+
+.. raw:: html
+
+    <div style>
+		<iframe width="560" height="315" src="https://youtu.be/pxMttnLEFW8" frameborder="0" allowfullscreen></iframe>
+    </div>
+
+Interface Debugging
+========================
+
+.. raw:: html
+
+    <div style>
+		<iframe width="560" height="315" src="https://youtu.be/8evvCluebMg" frameborder="0" allowfullscreen></iframe>
     </div>
 
 Configuration options
 ---------------------
+
+The configuration file is a text file that contains all the configuration options for the model. The configuration file is divided into sections, each of which contains a number of options with values that define how the model will run.
 
 ::
 
     ##################################################
     [DATABASE]
     ##################################################
-    database_path = C:\ep_db_us_2021\database
+    database_path = C:\ep_db_au\database
 
     ##################################################
     [CALCULATION_PARAMETERS]
     ##################################################
     parallel_process = False
     num_cores = 3
+    shape_check = True
 
     ##################################################
     [TIME]
     ##################################################
     current_year = 2018
-    end_year = 2050
-    weather_years = 2011
-    dispatch_outputs_timezone = US/Eastern
+    end_year = 2060
+    weather_years = 2018
+    dispatch_outputs_timezone = Australia/NSW
 
     ##################################################
     [GEOGRAPHY]
     ##################################################
-    default_geography_map_key = Households 2010 (complete count)
-    demand_primary_geography = US-16
-    supply_primary_geography = US-16
-    primary_subset = Lower Forty-eight, alaska and hawaii (north america)
+    default_geography_map_key = tot_p_p
+    demand_primary_geography = nzau-geography
+    primary_subset =
     breakout_geography =
     include_foreign_gaus = True
-    disagg_geography = state
+    disagg_geography = sa4
     disagg_breakout_geography =
 
     ##################################################
     [UNITS]
     ##################################################
-    energy_unit = mmBtu
+    energy_unit = gigajoule
     mass_unit = kilogram
-    currency_name = USD
-    currency_year = 2018
-    inflation_rate = 0.02
+    currency_name = AUD
+    currency_year = 2020
+    inflation_rate = 0.027
 
     ##################################################
     [DEMAND_OUTPUT_DETAIL]
@@ -71,12 +103,15 @@ Configuration options
     dod_years_subset =
     dod_vintage = False
     dod_demand_technology = True
-    dod_cost_type = False
+    dod_cost_type = True
     dod_new_replacement = False
     dod_other_index_1 = True
     dod_other_index_2 = False
-    dod_subsector_electricity_profiles = True
-    dod_subsector_profile_years = 2020, 2050
+    dod_output_hourly_profiles = True
+    dod_hourly_profile_final_energy_types = electricity, pipeline gas, liquid hydrogen, on-site hydrogen
+    dod_hourly_profile_years = 2021, 2030, 2040, 2050, 2060
+    dod_hourly_profile_keep_subsector = True
+    dod_hourly_profile_keep_feeder = False
 
     ##################################################
     [DEMAND_CALCULATION_PARAMETERS]
@@ -87,23 +122,21 @@ Configuration options
     ##################################################
     [RIO]
     ##################################################
-    rio_years = 2020, 2025, 2030, 2035, 2040, 2045, 2050
-    ep2rio_final_energy_shapes = pipeline gas, liquid hydrogen, industrial captured co2, steam
-    rio_mass_blends = co2 utilization blend A, co2 utilization blend B, non-energy co2 blend, product and bunkering co2 blend, Captured CO2 Blend
-    rio_volume_blends =
-    rio_distance_blends =
+    rio_years = 2020, 2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060
+    ep2rio_final_energy_shapes = pipeline gas, liquid hydrogen, industrial captured co2
     rio_standard_mass_unit = tonne
     rio_standard_energy_unit = mmbtu
     rio_standard_distance_unit = meter
     rio_standard_volume_unit = liter
-    rio_flex_load_subsectors = commercial air conditioning|| commercial space heating|| commercial water heating|| residential air conditioning|| residential space heating|| residential water heating|| heavy duty trucks|| light duty autos|| light duty trucks|| medium duty trucks
+    rio_flex_load_subsectors = residential water heating|| light commercial vehicles|| passenger vehicles
     rio_optimizable_subsectors =
-    active_subsectors = commercial air conditioning|| commercial cooking|| commercial lighting|| commercial other|| commercial refrigeration|| commercial space heating|| commercial unspecified|| commercial ventilation|| commercial water heating|| district services|| office equipment (non-p.c.)|| office equipment (p.c.)|| Cement and Lime CO2 Capture|| Other Non-Energy CO2|| agriculture-crops|| agriculture-other|| aluminum industry|| balance of manufacturing other|| bulk chemicals|| cement|| computer and electronic products|| construction|| electrical equip., appliances, and components|| fabricated metal products|| food and kindred products|| glass and glass products|| iron and steel|| lime|| machinery|| metal and other non-metallic mining|| paper and allied products|| plastic and rubber products|| transportation equipment|| wood products|| residential air conditioning|| residential building shell|| residential clothes drying|| residential clothes washing|| residential computers and related|| residential cooking|| residential dishwashing|| residential freezing|| residential furnace fans|| residential lighting|| residential other uses|| residential refrigeration|| residential secondary heating|| residential space heating|| residential televisions and related|| residential water heating|| aviation|| buses|| domestic shipping|| freight rail|| heavy duty trucks|| international shipping|| light duty autos|| light duty trucks|| lubricants|| medium duty trucks|| military use|| motorcycles|| passenger rail|| recreational boats
+    active_subsectors = commercial and services|| agriculture forestry and fishing|| agriculture non-energy|| basic chemical and chemical; polymer and rubber product manufacturing|| basic non-ferrous metals|| cement co2 capture|| cement; lime; plaster and concrete|| ceramics|| construction|| energy exports|| fabricated metal products|| food; beverages and tobacco|| furniture and other manufacturing|| glass and glass products|| industrial process non-energy|| iron and steel|| lulucf non-energy|| machinery and equipment|| non-metallic mineral products|| other mining|| other non-metallic mineral products|| other petroleum and coal product manufacturing|| pulp; paper and printing|| solvents; lubricants; greases and bitumen|| textile; clothing; footwear and leather|| waste non-energy|| water supply; sewerage and drainage services|| wood and wood products|| residential air conditioning|| residential clothes drying|| residential clothes washing|| residential cooktops and ovens|| residential dishwashing|| residential fans|| residential freezing|| residential it&he|| residential lighting|| residential microwave|| residential other appliances|| residential pools|| residential refrigeration|| residential space heating|| residential water heating|| articulated trucks|| buses|| domestic air transport|| domestic water transport|| international air transport|| international water transport|| light commercial vehicles|| motorcycles|| other transport; services and storage|| passenger vehicles|| rail transport|| rigid and other trucks
 
     ##################################################
     [RIO_DB]
     ##################################################
-    rio_database_path = C:\github\RIO_US_db\database
+    rio_database_path = C:\rio_db_au\database
+    shape_database_path =
 
     ##################################################
     [LOG]
