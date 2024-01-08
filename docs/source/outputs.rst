@@ -5,28 +5,37 @@ Outputs
 Folder Structure
 ===================
 
-General Terminology
-===================
+The structure of an EnergyPATHWAYS scenario is shown below. Under the Scenario 1 directory a new folder is established for each case. Within each case folder, outputs get written. After all cases are finished, results get appended in an _aggregate_outputs_EP folder. The EP2RIO folders are files generated specifically for the RIO capacity expansion model.
 
-In addition to indices specific to each file, the following includes a list and description of common indices:
+::
 
-**Primary Geography**
-  The primary geography defines the geographic granularity for an EP run.
-
-**Sector**
-  Demand sectors that include residential, commercial, transportation, and productive (industrial and agricultural sectors excluding those that are part of the energy supply chain, Ex. refining)
-
-**Subsector**
-  More detailed units of demand analysis. Associated with unique energy service demands. Ex. residential water heating.
-
-**Final Energy**
-  An energy type consumed to satisfy energy service demand. Differentiated from upstream energy use that is consumed to produce final energy.
-
-**Scenario**
-  Scenario name
-
-**Year**
-  Corresponding year of outputs.
+    EP scenarios
+    ├── Scenario 1
+    │   ├── _aggregate_outputs_EP
+    │   │   ├── demand_outputs
+    │   │   │   ├── d_annual_costs.csv
+    │   │   │   ├── d_driver.csv
+    │   │   │   ├── d_energy.csv
+    │   │   │   ├── d_levelized_costs.csv
+    │   │   │   ├── d_sales.csv
+    │   │   │   ├── d_service_demand.csv
+    │   │   │   ├── d_stock.csv
+    │   │   ├── EP2RIO
+    │   │   │   ├── DEMAND_LEVELIZED_COSTS.csvd
+    │   │   │   ├── ShapeData
+    │   │   │   ├── EXO_DEMAND.csv
+    │   │   │   ├── SHAPE_META.csv
+    │   └── Case 1
+    │   │   ├── demand_outputs
+    │   │   ├── EP2RIO
+    │   │   ├── Case 1_demand_model.p
+    │   │   ├── solve.true
+    │   └── Case 2
+    │   └── Case 3
+    │   └── logs
+    │   │   ├── energyPATHWAYS log.log
+    │   └── config.INI
+    │   └── runs_key.csv
 
 
 Output Files
@@ -69,3 +78,26 @@ Quantity of demand-side equipment stocks by technology (ex., electric vehicles; 
 
 Index Descriptions:
 - Unit: unit of demand technology stock. For example, the unit for commercial water heaters is kiloBTU capacity. 
+
+Output Terminology
+===================
+
+In addition to indices specific to each file, the following includes a list and description of common indices:
+
+**Geography**
+  The primary geography defines the geographic granularity for an EP run.
+
+**Sector**
+  Demand sectors that include residential, commercial, transportation, and productive (industrial and agricultural sectors excluding those that are part of the energy supply chain, Ex. refining)
+
+**Subsector**
+  More detailed units of demand analysis. Associated with unique energy service demands. Ex. residential water heating.
+
+**Final Energy**
+  An energy type consumed to satisfy energy service demand. Differentiated from upstream energy use that is consumed to produce final energy.
+
+**Scenario**
+  Scenario name
+
+**Year**
+  Corresponding year of outputs.

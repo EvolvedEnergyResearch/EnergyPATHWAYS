@@ -148,9 +148,6 @@ On the demand side, we employ the following six types of measures:
    **Fuel-Switching Measures** (database table: ``DemandFuelSwitchingMeasures``)
       Fuel switching measures are also used in demand subsectors without technology-level representations. We can implement these measures to change the composition of final energy demand. For example, if we wanted to change the final energy type in process heating from pipeline gas to electricity, we could do so with a fuel–switching measure.
 
-   **Flexible Load Measures** (database table: ``DemandFlexibleLoadMeasures``)
-      Flexible load measures define the amount of electric load in a subsector that we anticipate can be moved in time. For example, if we wanted 25% of residential electric water heating to be dynamically used to reduce peak loads and facilitate renewable integration, we could achieve that with a flexible load measure.
-
 Geographies
 --------------------
 Three input tables govern the geographies used in EnergyPATHWAYS. These are Geographies, GeographyMapKeys, and GeographiesSpatialJoin. The first two files reference the GeographiesSpatialJoin table and help identify and validate the columns. When creating a database for a new location, the GeographiesSpatialJoin table is often the very first file that gets updated.

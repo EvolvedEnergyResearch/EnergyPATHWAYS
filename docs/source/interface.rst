@@ -5,13 +5,23 @@ User Interface
 Tour of the user interface:
 --------------
 
+The user interface is located in the folder **'EnergyPATHWAYS\\EP interface'** and has two files. The first is a file called scenario_builder.py, which is a python file that must be located together with the excel sheet but that most users do not need to directly interact with. The second file is scenario_builder.xlsm, which is an excel workbook that organizes running the model.
+
+The excel workbook aids with three things:
+
+#. Creating a configuration file, which every EnergyPATHWAYS model run needs.
+#. Creating a runs_key.csv file, which defines a scenario in the EnergyPATHWAYS model.
+#. Running the model, including some convenient options for starting scenarios in parallel.
+
+The youtube videos below walk through the basic use of the user interface.
+
 Interface Overview
 ==================
 
 .. raw:: html
 
     <div style>
-		<iframe width="560" height="315" src="https://youtu.be/eC71ub9TSSg" frameborder="0" allowfullscreen></iframe>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/eC71ub9TSSg?si=7VZRBZcO9Y58d8Lh" frameborder="0" allowfullscreen></iframe>
     </div>
 
 Configuration Options
@@ -20,7 +30,7 @@ Configuration Options
 .. raw:: html
 
     <div style>
-		<iframe width="560" height="315" src="https://youtu.be/cRrxK1UJHKs" frameborder="0" allowfullscreen></iframe>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/cRrxK1UJHKs?si=wsMWZsZ15OPNX7C-" frameborder="0" allowfullscreen></iframe>
     </div>
 
 Scenarios and Sensitivities
@@ -29,7 +39,7 @@ Scenarios and Sensitivities
 .. raw:: html
 
     <div style>
-		<iframe width="560" height="315" src="https://youtu.be/oY28yLv_0fI" frameborder="0" allowfullscreen></iframe>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/oY28yLv_0fI?si=jKX1DAXXlg_jTvUD" frameborder="0" allowfullscreen></iframe>
     </div>
 
 Launching EnergyPATHWAYS
@@ -38,7 +48,7 @@ Launching EnergyPATHWAYS
 .. raw:: html
 
     <div style>
-		<iframe width="560" height="315" src="https://youtu.be/pxMttnLEFW8" frameborder="0" allowfullscreen></iframe>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/pxMttnLEFW8?si=xLoIzrtxHUFysdh2" frameborder="0" allowfullscreen></iframe>
     </div>
 
 Interface Debugging
@@ -47,7 +57,7 @@ Interface Debugging
 .. raw:: html
 
     <div style>
-		<iframe width="560" height="315" src="https://youtu.be/8evvCluebMg" frameborder="0" allowfullscreen></iframe>
+		<iframe width="560" height="315" src="https://www.youtube.com/embed/8evvCluebMg?si=dNKXHDZf1AzyJ6Yf" frameborder="0" allowfullscreen></iframe>
     </div>
 
 Configuration options

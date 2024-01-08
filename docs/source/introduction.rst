@@ -22,7 +22,7 @@ The value of this modeling is in building a cohesive, internally consistent stor
 History
 ==========
 
-The earliest form of this model was an Excel tool developed to support the analysis of California’s Global Warming Solutions Act of 2006 (AB 32). Subsequent analyses for California and the U.S. required advances in modeling capabilities, resulting in later versions being developed in Analytica, and at the time named the PATHWAYS model. The desire to create a more flexible platform that could be used at multiple jurisdictional levels and in a variety of energy system contexts encouraged the development of a new platform, renamed EnergyPATHWAYS, and written in Python.
+The earliest form of this model was an Excel tool developed to support the analysis of California’s Global Warming Solutions Act of 2006 (AB 32). Subsequent analyses for California and the U.S. required advances in modeling capabilities, resulting in later versions being developed in Analytica, and at the time named the PATHWAYS model and developed at the company Energy and Environmental Economics (E3). The desire to create a more flexible platform that could be used at multiple jurisdictional levels and in a variety of energy system contexts encouraged the development of a new platform, renamed EnergyPATHWAYS, and written in Python.
 
 Modeling Approach
 =================
@@ -33,6 +33,8 @@ Top-down Versus Bottom-up
 Whole economy energy models generally follow one of two types of modeling approaches: “top-down” or “bottom-up”. Top-down energy models focus on the macro-economy and balance supply and demand across all economic sectors. These models will sometimes use a stylistic representation of technologies. By contrast, bottom-up energy models contain richer characterizations of technology cost and performance, and technology change depends on the availability and ability of technologies to substitute for each other.
 
 Older versions of EnergyPATHWAYS covered both demand- and supply-side outputs; however, the latest version of EnergyPATHWAYS is designed work in conjunction with the RIO model for supply side modeling.
+
+One approach is not necessarily superior to the other but depends on the type of research question being asked. But, we believe that bottom-up energy models, which track physical flows of energy and their infrastructure, are the best suited to answer the question “How exactly do we decarbonize the energy system?”
 
 Exploration Versus Optimization
 -------------------------------
