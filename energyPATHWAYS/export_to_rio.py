@@ -13,7 +13,6 @@ import numpy_financial as npf
 from collections import defaultdict
 import glob
 import pickle
-from RIO.riodb.rio_db_loader import RioDatabase
 from energyPATHWAYS import shapes2
 import energyPATHWAYS.scenario_loader as scenario_loader
 from energyPATHWAYS.geomapper import GeoMapper
@@ -588,6 +587,7 @@ def run(replace):
     cfg.initialize_config()
     GeoMapper.get_instance().log_geo()
     riodbdir = cfg.getParam('rio_database_path', section='RIO_DB')
+    from RIO.riodb.rio_db_loader import RioDatabase
     rio_db = RioDatabase.get_database(riodbdir, load=False)
     logging.info('Exporting to RIO database path {}'.format(riodbdir))
     rio_shape_dir = cfg.getParam('shape_database_path', section='RIO_DB')
