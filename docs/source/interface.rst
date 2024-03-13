@@ -153,3 +153,42 @@ The configuration file is a text file that contains all the configuration option
     ##################################################
     log_level = INFO
     stdout = True
+
+Additional configuration for MacOS users
+----------------------------------------
+
+1. Install the ``xlwings`` Excel Add-in by running the following command in the terminal::
+    
+    (ep) $ xlwings addin install
+
+2. Inside the EP interface folder, open the ``scenario_builder.xlsm`` file with Excel
+3. Enable the developer tab on the ribbon by going to ``Excel > Preferences > Ribbon & Toolbar``
+4. Open the VBA editor
+5. Remove the ``xlwings`` module inside the ``VBAProject (scenario_builder.xlsm)`` project
+6. Under ``Tools > References``, find and check the ``xlwings`` reference
+7. Find the path to the Python interpreter of the ``ep`` environment and copy it to the ``Interpreter`` field of the ``xlwings`` tab
+
+Run Energy Pathways
+===================
+
+Once the cases are set up, the model can be run by using the ``run_ep.sh`` script located in the ``EP interface`` folder. 
+
+1. Open the ``run_ep.sh`` file with a text editor
+2. Edit the ``scenarios_folder`` variable at the top of the ``run_ep.sh`` file to point to the directory where the scenarios are located
+3. Edit the ``scenario_name`` variable with the name of the scenario to run
+4. Set the following three variables to ``True`` or ``False`` depending on whether the user wants to load demand, export results, or save models::
+
+    ep_load_demand=false
+    ep_export_results=true
+    ep_save_models=true
+
+5. Run the ``run_ep.sh`` file::
+
+    (ep) $ cd /path/to/working_directory/EP\ interface
+    (ep) $ ./run_ep.sh
+
+  If needed, change the permissions of the file by running:: 
+
+    (ep) $ chmod u+x run_ep.sh
+
+  and then run the file again.

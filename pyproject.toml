@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=66,<68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "energyPATHWAYS"
+version = '2024.03.12'
+authors = [
+    { name = "Ben Haley"},
+    { name = "Ryan Jones"},
+]
+maintainers = [
+    { name = "Ben Haley"},
+    { name = "Ryan Jones"},
+]
+description = 'Software package for long-term energy system modeling'
+readme = "README.md"
+requires-python = "==3.10.*"
+license = { text = "MIT" }
+dependencies = [
+    'pandas==1.5.*',
+    'numpy',
+    'scipy',
+    'pint',
+    'datetime',
+    'pathos',
+    'pytz',
+    'matplotlib',
+    'click',
+    'numpy_financial',
+    'sphinx_rtd_theme',
+    'toml',
+    "csvdb@git+https://github.com/EvolvedEnergyResearch/csvdb",
+    "xlwings",
+]
+
+[project.optional-dependencies]
+documentation = [
+    "Sphinx"
+]
+
+[project.scripts]
+energyPATHWAYS = "energyPATHWAYS.run:click_run"
+EP2RIO = "energyPATHWAYS.export_to_rio:click_run"
+
+[project.urls]
+"Source" = "https://github.com/energyPATHWAYS/energyPATHWAYS"

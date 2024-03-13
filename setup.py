@@ -1,7 +1,7 @@
 from setuptools import find_packages, setup
 
 setup(name='energyPATHWAYS',
-      version='2024.01.06',
+      version='2024.03.12',
       description='Software package for long-term energy system modeling',
       url='https://github.com/energyPATHWAYS/energyPATHWAYS',
       author='Ben Haley, Ryan Jones',

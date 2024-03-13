@@ -4,4 +4,4 @@ The EnergyPATHWAYS model is a comprehensive energy accounting and analysis frame
 
 **[User guide](https://energypathways.readthedocs.io/)**
 
-**EnergyPATHWAYS requires the csvdb package found [here](https://github.com/EvolvedEnergyResearch/csvdb).**
+**For Mac OS users, please refer to the [interface section](https://energypathways.readthedocs.io/en/latest/interface.html) of the user guide for additional configuration steps.**

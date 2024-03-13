@@ -1,0 +1,24 @@
+name: ep
+
+channels:
+  - conda-forge
+
+dependencies:
+  - python=3.10
+  - pip
+  - pandas=1.5
+  - numpy
+  - scipy
+  - pathos
+  - pytz
+  - matplotlib
+  - click
+  - sphinx_rtd_theme
+  - xlwings
+  - toml
+  - conda-forge::numpy-financial
+  - conda-forge::pint
+  - conda-forge::toml
+  - pip:
+    - datetime
+    - git+https://github.com/EvolvedEnergyResearch/csvdb

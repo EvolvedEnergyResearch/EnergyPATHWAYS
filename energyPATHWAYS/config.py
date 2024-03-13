@@ -9,7 +9,6 @@ from collections import defaultdict
 import datetime
 import logging
 import sys
-from pyomo.opt import SolverFactory
 import pdb
 import os
 import platform

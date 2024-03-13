@@ -14,16 +14,22 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-
 # -- Project information -----------------------------------------------------
 
-project = 'EnergyPATHWAYS'
+import toml
+
+# read the pyproject.toml file
+with open("../../pyproject.toml", "r") as f:
+    project_conf = toml.load(f)
+
+pyproject = project_conf["project"]
+
+project = pyproject["name"]
 copyright = '2024, Evolved Energy Research'
 author = 'Evolved Energy Research'
 
 # The full version, including alpha/beta/rc tags
-release = '3.0'
-
+release = pyproject["version"]
 
 # -- General configuration ---------------------------------------------------
 

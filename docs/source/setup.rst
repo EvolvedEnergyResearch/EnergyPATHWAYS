@@ -25,7 +25,17 @@ Model outputs consist of large csv files that have been designed to work well wi
 
 Installation
 ============
-EnergyPATHWAYS can be installed using Python's setuptools.
+EnergyPATHWAYS can be installed using the ``environment.yml`` file provided in the repository. This file contains all the necessary packages to run EnergyPATHWAYS. To install the environment, navigate to the directory containing the ``environment.yml`` file and run the following commands::
+
+    $ cd EnergyPATHWAYS
+    $ conda env create -f environment.yml -n ep
+
+This will create a new environment called ``ep``. Then, activate the environment and install EnergyPATHWAYS::
+
+    $ conda activate ep
+    $ pip install -e .
+
+Alternatively, EnergyPATHWAYS can be installed using Python's setuptools.
 
 After cloning the EnergyPATHWAYS repository::
 
@@ -54,7 +64,7 @@ In addition to installation of the EnergyPATHWAYS package described above, a mod
 The first two of these are described below, and the third is covered in detail unde
 
 Workspace Organization
-===================
+======================
 You can place EnergyPATHWAYS anywhere you want on your computer. We find that a folder structure similar to what is below makes for a clean workspace for EnergyPATHWAYS.
 
 ::
