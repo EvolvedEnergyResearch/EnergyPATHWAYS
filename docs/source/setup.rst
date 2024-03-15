@@ -43,14 +43,11 @@ After cloning the EnergyPATHWAYS repository::
 
 After running the setup script, the excel interface will be able to call the EnergyPATHWAYS model.
 
-.. Note::
-   EnergyPATHWAYS requires the csvdb library, which is not currently on PyPI and therefore won't be installed when running the setup script. It can be downloaded here: `<https://github.com/EvolvedEnergyResearch/csvdb>`_
-
 .. topic:: Troubleshooting
 
     Running setup.py develop will often give permissions errors. To address this, it is recommended that you right click on the command prompt and select the option *Run as administrator*.
 
-    If you encounter an error saying *python: can't open file 'setup.py': [Errno 2] No such file or directory,* check to make sure you are in the correct directory.
+    If you encounter an error saying *ERROR: <folder name> does not appear to be a Python project: neither 'setup.py' nor 'pyproject.toml' found,* check to make sure you are in the correct directory.
 
 Data Setup
 ==========
