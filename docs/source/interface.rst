@@ -171,10 +171,10 @@ Additional configuration for MacOS users
 Run Energy Pathways
 ===================
 
-Once the cases are set up, the model can be run by using the ``run_ep.sh`` script located in the ``EP interface`` folder. 
+Once the cases are set up, the model can be run by using the ``start_runs.sh`` script located in the ``EP interface`` folder. 
 
-1. Open the ``run_ep.sh`` file with a text editor
-2. Edit the ``scenarios_folder`` variable at the top of the ``run_ep.sh`` file to point to the directory where the scenarios are located
+1. Open the ``start_runs.sh`` file with a text editor
+2. Edit the ``scenarios_folder`` variable at the top of the ``start_runs.sh`` file to point to the directory where the scenarios are located
 3. Edit the ``scenario_name`` variable with the name of the scenario to run
 4. Set the following three variables to ``True`` or ``False`` depending on whether the user wants to load demand, export results, or save models::
 
@@ -182,7 +182,10 @@ Once the cases are set up, the model can be run by using the ``run_ep.sh`` scrip
     ep_export_results=true
     ep_save_models=true
 
-5. Run the ``run_ep.sh`` file::
+5. Add the names of cases to run in the ``case_list`` variable, leaving a space between each name.
+6. Edit the ``MAX_JOBS`` variable to set the number of cases that will be run in parallel. Each case can also use multiple cores if enabled in the ``config.INI`` file.
+
+7. Run the ``start_runs.sh`` file::
 
     (ep) $ cd /path/to/working_directory/EP\ interface
     (ep) $ ./run_ep.sh
