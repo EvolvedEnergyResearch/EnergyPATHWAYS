@@ -1,17 +1,20 @@
 [build-system]
-requires = ["setuptools>=66,<68", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [project]
 name = "energyPATHWAYS"
-version = '2024.03.12'
+version = '2024.03.15'
 authors = [
     { name = "Ben Haley"},
     { name = "Ryan Jones"},
 ]
 maintainers = [
-    { name = "Ben Haley"},
-    { name = "Ryan Jones"},
+    { name = "Luca Bonaldo"},
+    { name = "Greg Schivley"},
 ]
 description = 'Software package for long-term energy system modeling'
 readme = "README.md"
@@ -38,10 +41,14 @@ dependencies = [
 documentation = [
     "Sphinx"
 ]
+dev = [
+    "black"
+]
 
 [project.scripts]
 energyPATHWAYS = "energyPATHWAYS.run:click_run"
 EP2RIO = "energyPATHWAYS.export_to_rio:click_run"
 
 [project.urls]
-"Source" = "https://github.com/energyPATHWAYS/energyPATHWAYS"
+Source = "https://github.com/energyPATHWAYS/energyPATHWAYS"
+Documentation = "https://energypathways.readthedocs.io"
