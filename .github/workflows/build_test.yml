@@ -5,17 +5,20 @@ on: [push, pull_request]
 jobs:
   build:
     strategy:
+      max-parallel: 5
       matrix:
         os: [ubuntu-latest, windows-latest, macOS-latest]
     runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
       - uses: actions/checkout@v4
-
-    - name: Install Conda environment with Micromamba
-      uses: mamba-org/setup-micromamba@v1
-      with:
-        environment-file: environment.yml
-        cache-environment: true
+      - name: Install Conda environment with Micromamba
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: environment.yml
+          cache-environment: true
 
       - name: Install energyPATHWAYS
         run: |
