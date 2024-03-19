@@ -15,7 +15,6 @@ dependencies:
   - click
   - sphinx_rtd_theme
   - xlwings
-  - toml
   - conda-forge::numpy-financial
   - conda-forge::pint
   - conda-forge::toml

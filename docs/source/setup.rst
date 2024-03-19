@@ -15,10 +15,12 @@ A working EnergyPATHWAYS installation consists of four main parts:
 Dependencies
 ============
 
-EnergyPATHWAYS has been tested with **Python 3.10**. We recommend downloading a specific Anaconda Distribution of python, which can be found here: `<https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Windows-x86_64.exe>`_
+EnergyPATHWAYS has been tested with **Python 3.10**. If you use Windows and do not already have a conda/Andacond installation, we recommend downloading a specific Anaconda Distribution of python, which can be found here: `<https://repo.anaconda.com/archive/Anaconda3-2023.03-1-Windows-x86_64.exe>`_
+
+If you want a smaller conda installation or are not on windows, feel free to download and install the `most recent version of Miniconda <https://docs.anaconda.com/free/miniconda/>`_ for your operating system. 
 
 .. Note::
-   EnergyPATHWAYS has been developed and tested on Microsoft Windows and the interface requires Microsoft Excel for the interface.
+   EnergyPATHWAYS has been developed and tested primarily on Microsoft Windows and the interface requires Microsoft Excel. Some of the Excel interface features can be used on a Mac, and a shell script is now available to run cases on Mac or Linux.
 
 Model outputs consist of large csv files that have been designed to work well with `Tableau <https://www.tableau.com/>`_.
 
