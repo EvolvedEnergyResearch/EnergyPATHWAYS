@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 # Define scenarios folder and scenario name
 scenarios_folder="/Users//Documents/EnergyPATHWAYS/model_runs"
@@ -11,7 +11,10 @@ cd "${scenarios_folder}/${scenario_name}" || exit 1
 ep_load_demand=false
 ep_export_results=true
 ep_save_models=true
-scenario_list=("reference" "eplus" "eplus reduce exports" "eminus") # Example scenario names
+case_list=("reference" "eplus" "eplus reduce exports" "eminus") # Example case names
+
+# Maximum number of cases to run in parallel
+MAX_JOBS=2
 
 # Convert the Excel true/false to command line flags
 load_demand_flag="--no_load_demand"
@@ -32,26 +35,23 @@ fi
 # Common parameters for all scenarios
 params="${load_demand_flag} ${export_results_flag} ${save_models_flag}"
 
-# Maximum number of parallel jobs
-MAX_JOBS=2
-
 # Use an array to keep track of job PIDs
 declare -a job_pids
 
-first_scenario=true
+first_case=true
 
 # Loop through the scenarios and execute the command in background
-for scenario in "${scenario_list[@]}"; do
-    # Determine the shape_owner_flag based on whether it's the first scenario
-    if [ "$first_scenario" = true ]; then
+for case in "${case_list[@]}"; do
+    # Determine the shape_owner_flag based on whether it's the first case
+    if [ "$first_case" = true ]; then
         shape_owner_flag="--shape_owner"
-        first_scenario=false # Ensure this block only runs once
+        first_case=false # Ensure this block only runs once
     else
         shape_owner_flag="--no_shape_owner"
     fi
     
-    # Construct the command with current scenario
-    command="energyPATHWAYS -s \"$scenario\" $params $shape_owner_flag"
+    # Construct the command with current case
+    command="energyPATHWAYS -s \"$case\" $params $shape_owner_flag"
     
     # Execute the command in the background
     echo "Executing in background: $command"
