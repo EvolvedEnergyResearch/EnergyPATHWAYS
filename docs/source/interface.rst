@@ -3,9 +3,9 @@ User Interface
 ====================
 
 Tour of the user interface:
---------------
+---------------------------
 
-The user interface is located in the folder **'EnergyPATHWAYS\\EP interface'** and has two files. The first is a file called scenario_builder.py, which is a python file that must be located together with the excel sheet but that most users do not need to directly interact with. The second file is scenario_builder.xlsm, which is an excel workbook that organizes running the model.
+The user interface is located in the folder **EnergyPATHWAYS\\EP interface** and has two files. The first is a file called scenario_builder.py, which is a python file that must be located together with the excel sheet but that most users do not need to directly interact with. The second file is scenario_builder.xlsm, which is an excel workbook that organizes running the model.
 
 The excel workbook aids with three things:
 
@@ -14,6 +14,10 @@ The excel workbook aids with three things:
 #. Running the model, including some convenient options for starting scenarios in parallel.
 
 The youtube videos below walk through the basic use of the user interface.
+
+.. note:: 
+  On MacOS you cannot use the scenario_builder.xlsm file to run EnergyPATHWAYS. See the :ref:`Run Energy Pathways on MacOS` section for instructions on how to use the start_runs.sh bash script, which provides a similar service. 
+
 
 Interface Overview
 ==================
@@ -60,8 +64,8 @@ Interface Debugging
 		<iframe width="560" height="315" src="https://www.youtube.com/embed/8evvCluebMg?si=dNKXHDZf1AzyJ6Yf" frameborder="0" allowfullscreen></iframe>
     </div>
 
-Configuration options
----------------------
+Configuration file options
+--------------------------
 
 The configuration file is a text file that contains all the configuration options for the model. The configuration file is divided into sections, each of which contains a number of options with values that define how the model will run.
 
@@ -154,22 +158,9 @@ The configuration file is a text file that contains all the configuration option
     log_level = INFO
     stdout = True
 
-Additional configuration for MacOS users
-----------------------------------------
 
-1. Install the ``xlwings`` Excel Add-in by running the following command in the terminal::
-    
-    (ep) $ xlwings addin install
-
-2. Inside the EP interface folder, open the ``scenario_builder.xlsm`` file with Excel
-3. Enable the developer tab on the ribbon by going to ``Excel > Preferences > Ribbon & Toolbar``
-4. Open the VBA editor
-5. Remove the ``xlwings`` module inside the ``VBAProject (scenario_builder.xlsm)`` project
-6. Under ``Tools > References``, find and check the ``xlwings`` reference
-7. Find the path to the Python interpreter of the ``ep`` environment and copy it to the ``Interpreter`` field of the ``xlwings`` tab
-
-Run Energy Pathways
-===================
+Run Energy Pathways on MacOS
+-----------------------------
 
 Once the cases are set up, the model can be run by using the ``start_runs.sh`` script located in the ``EP interface`` folder. 
 

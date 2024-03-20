@@ -22,6 +22,8 @@ If you want a smaller conda installation or are not on windows, feel free to dow
 .. Note::
    EnergyPATHWAYS has been developed and tested primarily on Microsoft Windows and the interface requires Microsoft Excel. Some of the Excel interface features can be used on a Mac, and a shell script is now available to run cases on Mac or Linux.
 
+   **All prompt commands on Windows should be run in the Anaconda Prompt.**
+
 Model outputs consist of large csv files that have been designed to work well with `Tableau <https://www.tableau.com/>`_.
 
 
@@ -30,26 +32,56 @@ Installation
 EnergyPATHWAYS can be installed using the ``environment.yml`` file provided in the repository. This file contains all the necessary packages to run EnergyPATHWAYS. To install the environment, navigate to the directory containing the ``environment.yml`` file and run the following commands::
 
     $ cd EnergyPATHWAYS
-    $ conda env create -f environment.yml -n ep
+    $ conda env create -f environment.yml
 
 This will create a new environment called ``ep``. Then, activate the environment and install EnergyPATHWAYS::
 
     $ conda activate ep
     $ pip install -e .
 
-Alternatively, EnergyPATHWAYS can be installed using Python's setuptools.
+Using the ``-e`` flag will install EnergyPATHWAYS inside your new ``ep`` conda environment in editable mode so that any changes to the code are reflected when running EnergyPATHWAYS without having to reinstall.
 
-After cloning the EnergyPATHWAYS repository::
+After running the setup script, the excel interface will be able to call the EnergyPATHWAYS model. It will also make the command line function ``energyPATHWAYS`` available.
 
-    > python setup.py develop
+.. tip::
 
-After running the setup script, the excel interface will be able to call the EnergyPATHWAYS model.
+    If you get permissions errors on a Windows machine during the installation process, right click on the Anaconda Prompt and select the option *Run as administrator*.
 
-.. topic:: Troubleshooting
+    If you encounter an error saying *ERROR: <folder name> does not appear to be a Python project: neither 'setup.py' nor 'pyproject.toml' found,* check to make sure you are in the correct directory. If you run ``ls`` (or ``dir`` on Windows) at the command prompt you should see the ``environment.yml`` and ``pyproj.toml`` files.
 
-    Running setup.py develop will often give permissions errors. To address this, it is recommended that you right click on the command prompt and select the option *Run as administrator*.
+Additional Excel configuration
+------------------------------
 
-    If you encounter an error saying *ERROR: <folder name> does not appear to be a Python project: neither 'setup.py' nor 'pyproject.toml' found,* check to make sure you are in the correct directory.
+For all users
+^^^^^^^^^^^^^^^
+
+1. (Optional, **depreciated**) Install the ``xlwings`` Excel Add-in by running the following command in the terminal::
+    
+    (ep) $ xlwings addin install
+
+Installing the xlwings addin will add a new ribbon tab to your Excel files. We have started using an "xlwings.conf" sheet in the scenario_builder.xlsm file instead of the ribbon tab.
+
+2. Enter the "Conda path" and "Conda env" values on the "xlwings.conf" sheet of your scenario_builder.xlsm file. Find the path to your Conda "base environment" ::
+   
+   (ep) $ conda info
+
+The Conda path should be something like ``C:\Users\Username\Anaconda3`` (Windows) or ``/Users/Username/miniconda3`` (MacOS). Copy this path to the "Conda path" field on your xlwings.conf sheet. Assuming you have followed installation instructions up to this point, use ``ep`` as the "Conda env".
+
+.. note:: 
+    On a Windows machine, the "Conda path" and "Conda env" variables will be used to activate your conda environment before running energyPATHWAYS. The "Start Runs" button in your scenario_builder.xlsm file will likely not work if you do not provide these values.
+   
+    For more information on using the Xlwings ribbon and "xlwings.conf" sheet, see the `xlwings addin documentation <https://docs.xlwings.org/en/latest/addin.html>`_.
+
+
+For MacOS users
+^^^^^^^^^^^^^^^
+
+1. Inside the EP interface folder, open the ``scenario_builder.xlsm`` file with Excel
+2. Enable the developer tab on the ribbon by going to ``Excel > Preferences > Ribbon & Toolbar``
+3. Open the VBA editor
+4. Remove the ``xlwings`` module inside the ``VBAProject (scenario_builder.xlsm)`` project
+5. Under ``Tools > References``, find and check the ``xlwings`` reference
+
 
 Data Setup
 ==========
@@ -71,19 +103,17 @@ You can place EnergyPATHWAYS anywhere you want on your computer. We find that a 
     Some-Date-EP_model
     ├── EnergyPATHWAYS
     │   ├── EnergyPATHWAYS
-    │   └── setup.py
-    ├── csvdb
-    │   ├── numerous folders
-    │   └── setup.py
+    │   └── pyproj.toml
     ├── EP_interface
     │   ├── scenario_builder.py
-    │   └── scenario_builder.xlsm
+    │   ├── scenario_builder.xlsm
+    │   └── start_runs.sh
     ├── ep_db
     │   ├── ShapeData
     │   └── numerous csv files
     ├── ep_runs
     │   ├── my_scenario
-    │   │   └── config.INI
+    │   │   ├── config.INI
     │   │   └── runs_key.csv
 
 Running the Model
@@ -97,4 +127,4 @@ To get help on the various command line options, use::
 
     $ energyPATHWAYS --help
 
-In most cases, the user interface, described in :doc:`Interface Section <interface>`, is the best way to interact with the model.
+In most cases, the Excel user interface, described in :doc:`Interface Section <interface>`, is the best way to interact with the model.
