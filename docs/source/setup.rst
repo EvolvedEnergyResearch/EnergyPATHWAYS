@@ -72,12 +72,6 @@ The Conda path should be something like ``C:\Users\Username\Anaconda3``. Copy th
    
     For more information on using the Xlwings ribbon and "xlwings.conf" sheet, see the `xlwings addin documentation <https://docs.xlwings.org/en/latest/addin.html>`_.
 
-3. Check that the "Interpreter_Win" value on the "xlwings.conf" sheet of your scenario_builder.xlsm file is either set to "python" or contains the path to your Python interpreter. Find the path to your Python interpreter by running the following command in the command prompt::
-
-   (ep) $ where python
-
-The Interpreter_Win path should be either ``python`` or something like ``C:\Users\Username\Anaconda3\envs\ep\python.exe``, where ``ep`` is the name of your conda environment. Copy this path to the "Interpreter_Win" field on your xlwings.conf sheet.
-
 For MacOS users
 ^^^^^^^^^^^^^^^
 
