@@ -76,30 +76,38 @@ To set up the EP interface, follow these steps:
 
     **For Windows users**
 
-    1. (Optional, **depreciated**) Install the ``xlwings`` Excel Add-in by running the following command in the terminal::
-    
-        (ep) $ xlwings addin install
-
-    Installing the xlwings addin will add a new ribbon tab to your Excel files. We have started using an "xlwings.conf" sheet in the scenario_builder.xlsm file instead of the ribbon tab.
-
-    2. Enter the "Conda path" and "Conda env" values on the "xlwings.conf" sheet of your scenario_builder.xlsm file. Find the path to your Conda "base environment" ::
+    Enter the "Interpreter_Win", "Conda path" and "Conda env" values on the "xlwings.conf" sheet of your scenario_builder.xlsm file. Find the path to your Conda "base environment" ::
 
         (ep) $ conda info
 
-    The Conda path should be something like ``C:\Users\Username\Anaconda3``. Copy this path to the "Conda path" field on your xlwings.conf sheet. Assuming you have followed installation instructions up to this point, use ``ep`` as the "Conda env".
+    The Conda path should be something like ``C:\Users\Username\Anaconda3``. Copy this path to the "Conda path" field on your xlwings.conf sheet. Assuming you have followed installation instructions up to this point, use ``ep`` as the "Conda env" and ``python`` as the "Interpreter_Win" values.
 
     .. note:: 
         The "Conda path" and "Conda env" variables will be used to activate your conda environment before running energyPATHWAYS. The "Start Runs" button in your scenario_builder.xlsm file will likely not work if you do not provide these values.
 
-        For more information on using the Xlwings ribbon and "xlwings.conf" sheet, see the `xlwings addin documentation <https://docs.xlwings.org/en/latest/addin.html>`_.
+    The xlwings.conf sheet should be similar to this (replace "Username" with your actual username):
+
+        +-----------------+--------------------------------+
+        | Interpreter_Win | python                         |
+        +-----------------+--------------------------------+
+        | Conda Path      | C:\\Users\\Username\\Anaconda3 |
+        +-----------------+--------------------------------+
+        | Conda Env       | ep                             |
+        +-----------------+--------------------------------+
 
     **For MacOS users**
 
-    1. Enter the "Interpreter_Mac" value on the "xlwings.conf" sheet of your scenario_builder.xlsm file. Find the path to your Python interpreter by running the following command in the terminal::
+    Enter the "Interpreter_Mac" value on the "xlwings.conf" sheet of your scenario_builder.xlsm file. Find the path to your Python interpreter by running the following command in the terminal::
 
         (ep) $ which python
 
     The Interpreter_Mac path should be something like ``/Users/Username/miniconda3/envs/ep/bin/python``. Copy this path to the "Interpreter_Mac" field on your xlwings.conf sheet.
+
+    The xlwings.conf sheet should be similar to this (replace "Username" with your actual username):
+
+        +-----------------+------------------------------------------------+
+        | Interpreter_Mac |  /Users/Username/miniconda3/envs/ep/bin/python |
+        +-----------------+------------------------------------------------+
 
 2. Data Setup
 -------------
@@ -150,11 +158,6 @@ In most cases, the Excel user interface, described in :doc:`Interface Section <i
 Uninstall EnergyPATHWAYS
 ========================
 
-If you installed the optional xlwings add-in, you may want to remove it from Excel before uninstalling EnergyPATHWAYS::
-
-    $ xlwings addin remove
-
-Manually remove .xlwings directory in your home folder if it exists.
 
 To uninstall EnergyPATHWAYS, deactivate the environment and remove it::
 
