@@ -186,3 +186,7 @@ Once the cases are set up, the model can be run by using the ``start_runs.sh`` s
     (ep) $ chmod u+x run_ep.sh
 
   and then run the file again.
+
+.. tip:: 
+  Remember to activate the ep conda environment in the terminal before running the start_runs.sh script.
+  
