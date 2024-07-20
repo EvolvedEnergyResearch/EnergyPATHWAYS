@@ -34,7 +34,7 @@ dependencies = [
     'sphinx_rtd_theme',
     'toml',
     "csvdb@git+https://github.com/EvolvedEnergyResearch/csvdb",
-    "xlwings",
+    "xlwings==0.30.15",
 ]
 
 [project.optional-dependencies]
