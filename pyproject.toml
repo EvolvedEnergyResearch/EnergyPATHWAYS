@@ -7,7 +7,7 @@ allow-direct-references = true
 
 [project]
 name = "energyPATHWAYS"
-version = '2024.03.15'
+version = '2024.07.22'
 authors = [
     { name = "Ben Haley"},
     { name = "Ryan Jones"},
