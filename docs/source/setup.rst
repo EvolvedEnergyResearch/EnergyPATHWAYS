@@ -109,6 +109,10 @@ To set up the EP interface, follow these steps:
         | Interpreter_Mac |  /Users/Username/miniconda3/envs/ep/bin/python |
         +-----------------+------------------------------------------------+
 
+    With the EP conda environment activated in the terminal, run the following command to finalize the installation of the xlwings package::
+
+        (ep) $ xlwings runpython install
+
 2. Data Setup
 -------------
 
