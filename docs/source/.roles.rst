@@ -1,0 +1,8 @@
+.. role:: red
+.. role:: red-italic
+.. role:: orange
+.. role:: yellow
+.. role:: green
+.. role:: cyan
+.. role:: blue
+.. role:: navy

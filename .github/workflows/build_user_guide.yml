@@ -1,0 +1,57 @@
+name: Build EP Documentation
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-user-guide:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install Dependencies
+      run: |
+        pip install -r docs/requirements.txt
+        
+    - name: Check for changes in the User Guide
+      id: docs-changes
+      uses: dorny/paths-filter@v2
+      with:
+        filters: |
+          docs:
+            - 'docs/source/model_user_guide/**'
+
+    - name: Build and Deploy User Guide PDF
+      if: steps.docs-changes.outputs.docs == 'true'
+      run: |
+        # Build PDF
+        sudo apt-get update
+        sudo apt-get install -y texlive texlive-latex-extra texlive-fonts-recommended latexmk
+        cd docs
+        make latexpdf
+        
+        # Move PDF to _static
+        mv build/latex/user_guide.pdf source/_static/user_guide.pdf
+        
+        # Commit and push changes
+        git config --global user.name 'github-actions[bot]'
+        git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+        git add source/_static/user_guide.pdf
+        git commit -m "Update user_guide.pdf"
+        git push
+
+    - name: Trigger RTDs build
+      uses: dfm/rtds-action@v1
+      with:
+        webhook_url: ${{ secrets.RTDS_WEBHOOK_URL }}
+        webhook_token: ${{ secrets.RTDS_WEBHOOK_TOKEN }}
+        commit_ref: ${{ github.ref }}

@@ -1,0 +1,32 @@
+.red {
+    color: red;
+}
+
+.orange {
+    color: orange;
+}
+
+.yellow {
+    color: yellow;
+}
+
+.green {
+    color: green;
+}
+
+.cyan {
+    color: cyan;
+}
+
+.blue {
+    color: blue;
+}
+
+.navy {
+    color: navy;
+}
+
+.red-italic {
+    color: red;
+    font-style: italic;
+}

@@ -1,15 +1,15 @@
-====================
+========
 Database
-====================
+========
 
 Overview
---------------------
+--------
 The EnergyPATHWAYS database represents all energy consuming sectors and subsectors of the economy, including residential, commercial, industrial, and transportation energy demands. This includes calibrated energy demand by subsector, and the scenario measures that impact energy demand by changing the way energy is consumed under different policy, technology, feasibility, or economic assumptions. You will make changes to the database to represent different goals and constraints.
 
 Example components of demand scenarios include different rates of electrification of vehicles and appliances, different efficiency assumptions, different service demand assumptions such as adjustments to vehicle miles traveled, and different rates of electrification in industry. These can be used to represent policies that impact the demand side, or uncertainty about outcomes on the demand side due to consumer behavior and/or policy implementation.
 
 Database Column Glossary
---------------------
+------------------------
 
 **cost_of_capital**
     Technology cost of capital used in calculating levelized cost outputs.
@@ -21,10 +21,10 @@ Database Column Glossary
     Year of currency value, used in inflating or deflating costs to a common year.
 
 **extrapolation_method**
-    Method used to extrapolate data to years not explicitly defined in the database. See :ref:`Timeseries cleaning methods`.
+    Method used to extrapolate data to years not explicitly defined in the database. See Timeseries cleaning methods.
 
 **interpolation_method**
-    Method used to interpolate data between given years, can be different than the extrapolation method. See :ref:`Timeseries cleaning methods`.
+    Method used to interpolate data between given years, can be different than the extrapolation method. See Timeseries cleaning methods.
 
 **input_type**
     Specifying whether the input data represents an 'intensity' or a 'total' value.
@@ -127,7 +127,7 @@ Database Column Glossary
 
 
 Measures
---------------------
+--------
 
 EnergyPATHWAYS operates at its simplest on the level of measures and scenarios. Scenarios are an aggregation of measures, defined here as actions undertaken to change the energy system from a business-as-usual projection.
 
@@ -149,6 +149,6 @@ On the demand side, we employ the following six types of measures:
       Fuel switching measures are also used in demand subsectors without technology-level representations. We can implement these measures to change the composition of final energy demand. For example, if we wanted to change the final energy type in process heating from pipeline gas to electricity, we could do so with a fuel–switching measure.
 
 Geographies
---------------------
+-----------
 Three input tables govern the geographies used in EnergyPATHWAYS. These are Geographies, GeographyMapKeys, and GeographiesSpatialJoin. The first two files reference the GeographiesSpatialJoin table and help identify and validate the columns. When creating a database for a new location, the GeographiesSpatialJoin table is often the very first file that gets updated.
 
