@@ -88,3 +88,5 @@ scenario_builder_config.txt
 **/__pycache__/
 
 /energyPATHWAYS.egg-info/
+
+**/.DS_Store
