@@ -1094,7 +1094,7 @@ class Subsector(schema.DemandSubsectors):
             elif hasattr(self,'service_demand'):
                 measure.calculate(self.vintages, self.years, self.service_demand.unit)
             elif hasattr(self,'energy_demand'):
-                measure.calculate(self.vintages, self.years, self.energy_demand.unit)
+                measure.calculate(self.vintages, self.years, self.energy_demand.get_energy_unit())
             else:
                 raise ValueError("service demand measure has been created for a subsector which doesn't have an energy demand or service demand")
         for measure in self.fuel_switching_measures.values():
