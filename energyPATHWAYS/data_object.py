@@ -360,6 +360,8 @@ class DataObject(CsvDataObject):
         df_levels = {df.index.name: df.index.values} if df.index.nlevels==1 else dict(zip(df.index.names, df.index.levels))
         for driver in drivers:
             for index_name in driver.index.names:
+                if index_name == GeoMapper.demand_primary_geography:
+                    continue
                 if index_name in df_levels:
                     if index_name in ['year', 'vintage']:
                         overlapping = set(df_levels[index_name]) & set(driver.index.get_level_values(index_name))
