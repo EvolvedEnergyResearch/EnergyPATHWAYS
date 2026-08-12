@@ -4,6 +4,7 @@ Created on Mon Sep 28 10:01:16 2015
 
 @author: Ben
 """
+import pandas as pd
 
 from energyPATHWAYS import config as cfg
 from energyPATHWAYS import util
@@ -29,6 +30,7 @@ class DemandTechCost():
         self.stock_time_unit = tech.stock_time_unit
         self.cost_of_capital = tech.cost_of_capital
         self.input_type = 'intensity'
+        self.name = tech.name
 
     def calculate(self, vintages, years):
         self.vintages = vintages
@@ -58,7 +60,10 @@ class DemandTechCost():
             self.values = copy.deepcopy(self.raw_values)
 
         if self.definition == 'absolute':
-            self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
+            try:
+                self.values = UnitConverter.currency_convert(self.values, self.currency, self.currency_year)
+            except:
+                pdb.set_trace()
             self.absolute = True
         else:
             self.absolute = False
@@ -68,6 +73,7 @@ class DemandTechCost():
             inflation = cfg.getParamAsFloat('inflation_rate', section='UNITS')
             rate = self.cost_of_capital - inflation
             if self.is_levelized == 0:
+
                 self.values_level = - npf.pmt(rate, self.book_life, 1, 0, 'end') * self.values
                 util.convert_age(self, attr_from='values_level', attr_to='values_level', reverse=False,
                                  vintages=self.vintages, years=self.years)
@@ -175,6 +181,49 @@ class ParasiticEnergy(schema.DemandTechsParasiticEnergy):
         else:
             self.values = self.raw_values.copy()
             self.absolute = False
+
+
+
+class DemandTechsUtilityFactorObject(schema.DemandTechsUtilityFactor):
+    def __init__(self,tech,scenario=None):
+        super(DemandTechsUtilityFactorObject, self).__init__(demand_technology=tech.name, scenario=scenario)
+        self.init_from_db(tech.name, scenario)
+        self.scenario = scenario
+        self.input_type = 'intensity'
+
+
+    def calculate(self, vintages, years):
+        self.vintages = vintages
+        self.years = years
+        if self.raw_values is not None:
+            self.convert()
+            self.remap(map_from='values', map_to='values', time_index_name='vintage', converted_geography=GeoMapper.demand_primary_geography)
+            util.convert_age(self, reverse=True, vintages=self.vintages, years=self.years)
+            self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
+        else:
+            self.values = pd.DataFrame(1, index=pd.MultiIndex.from_product([self.vintages, GeoMapper.geography_to_gau[GeoMapper.demand_primary_geography]],names=['vintage',GeoMapper.demand_primary_geography]), columns=self.years)
+
+
+
+
+        if not self._has_data:
+            self.absolute = False
+        if self.raw_values is None:
+            # if the class is empty, then there is no data for conversion, so the class is considered converted
+            self.absolute = True
+
+    def convert(self):
+        """
+        return values from raw_values that are converted to units consistent with output units
+        """
+        if self.definition == 'absolute':
+            self.values = self.raw_values
+            self.absolute = True
+        else:
+            self.values = self.raw_values.copy()
+            self.absolute = False
+
+
 
 
 class DemandTechEfficiency(object):
@@ -365,8 +414,8 @@ class DemandTechnology(schema.DemandTechs, StockItem):
         # by passing it in here, we can grab it when we geomap the specified stock
         self.geography_map_key = geography_map_key
 
-    def get_shape(self, default_shape):
-        return shapes2.ShapeContainer.get_values(default_shape) if self.shape is None else shapes2.ShapeContainer.get_values(self.shape)
+    def get_shape(self, default_shape, weather_year=None):
+        return shapes2.ShapeContainer.get_values(default_shape, weather_year) if self.shape is None else shapes2.ShapeContainer.get_values(self.shape, weather_year)
 
     def get_max_lead_hours(self):
         return self.max_lead_hours if self.max_lead_hours else None
@@ -457,9 +506,10 @@ class DemandTechnology(schema.DemandTechs, StockItem):
         self.fuel_switch_cost = DemandTechsFuelSwitchCostObj(self, scenario=self.scenario)
         self.fixed_om = DemandTechsFixedMaintenanceCostObj(self, scenario=self.scenario)
         self.efficiency_main = DemandTechsMainEfficiencyObj(self, scenario=self.scenario)
+        self.utility_factor = DemandTechsUtilityFactorObject(self, scenario=self.scenario)
         self.efficiency_aux = DemandTechsAuxEfficiencyObj(self, scenario=self.scenario)
-        if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
-            self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
+        # if hasattr(self.efficiency_main,'definition') and self.efficiency_main.definition == 'absolute':
+        #     self.efficiency_aux.utility_factor = 1 - self.efficiency_main.utility_factor
         self.service_demand_modifier = ServiceDemandModifier(self, scenario=self.scenario)
         self.parasitic_energy = ParasiticEnergy(self, scenario=self.scenario)
         self.air_pollution = AirPollution(self,scenario=self.scenario)

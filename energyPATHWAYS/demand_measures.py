@@ -44,7 +44,10 @@ class DemandMeasure(StockItem):
 
     def convert(self):
         if self.input_type == 'total':
-            self.values = UnitConverter.unit_convert(self.raw_values, unit_from_num=self.unit,
+            if len(set(self.raw_values.index.get_level_values('unit')))==1:
+                self.values = UnitConverter.unit_convert(self.raw_values, unit_from_num=self.raw_values.index.get_level_values('unit')[0],unit_to_num=self.unit_to,drop_units=True)
+            else:
+                self.values = UnitConverter.unit_convert(self.raw_values, unit_from_num='from_dataframe',
                                             unit_to_num=self.unit_to)
         else:
             self.values = self.raw_values
@@ -78,6 +81,7 @@ class EnergyEfficiencyMeasure(schema.DemandEnergyEfficiencyMeasures, DemandMeasu
         self.name = name
         schema.DemandEnergyEfficiencyMeasures.__init__(self, name, scenario=scenario)
         self.init_from_db(name, scenario)
+        self.scenario = scenario
         DemandMeasure.__init__(self)
         self.calculate_book_life()
         self.cost_of_capital = cost_of_capital
@@ -143,6 +147,7 @@ class FuelSwitchingImpact(schema.DemandFuelSwitchingMeasuresImpact):
                 self.remap(map_from='raw_values', map_to='values', converted_geography=GeoMapper.demand_primary_geography, time_index_name='year')
             except:
                 pdb.set_trace()
+
     def convert(self):
         if self.input_type == 'total':
             self.values = UnitConverter.unit_convert(self.raw_values, unit_from_num=self.unit,
@@ -211,7 +216,7 @@ class DemandMeasureCost(DataObject):
                                  vintages=self.vintages, years=self.years)
                 self.values = npf.pv(rate, self.book_life, -1, 0, 'end') * self.values
         else:
-            util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years)
+            util.convert_age(self, reverse=False, vintages=self.vintages, years=self.years, attr_from='values',attr_to='values_level')
 
 class EnergyEfficiencyMeastureCost(schema.DemandEnergyEfficiencyMeasuresCost, DemandMeasureCost):
     def __init__(self, name, cost_of_capital, book_life, scenario=None):

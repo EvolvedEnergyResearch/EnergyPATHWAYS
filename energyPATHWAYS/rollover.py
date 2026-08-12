@@ -90,7 +90,10 @@ class Rollover(object):
             self.stock_changes = np.zeros(shape)
             self.use_stock_changes = False
         else:
-            self.stock_changes = np.reshape(np.repeat(stock_changes/self.spy, self.spy, axis=0), shape)
+            try:
+                self.stock_changes = np.reshape(np.repeat(stock_changes/self.spy, self.spy, axis=0), shape)
+            except:
+                pdb.set_trace()
 
     def initialize_specified_retirements(self, specified_retirements):
         """ Specified retirements get spread equally over all periods within the year

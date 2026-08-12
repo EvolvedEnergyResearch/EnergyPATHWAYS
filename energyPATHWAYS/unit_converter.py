@@ -36,6 +36,7 @@ class UnitConverter:
                   'cubic_feet_year = cubic_foot * year',
                   'tbtu  = 1,000,000,000,000 * btu',
                   'ton_mile = ton * mile',
+                  'kgoe  = 39683.2 * btu',
                   'h2_kilogram = 39.5 * kilowatt_hour',
                   'jet_fuel_gallon = 125800 * Btu',
                   'twh = 1 * terawatt_hour',
@@ -117,19 +118,20 @@ class UnitConverter:
             try:
                 factor = (1. / input_unit).to(output_unit).magnitude
             except:
-                pdb.set_trace()
+                raise ValueError('Cannot convert from {} to {}'.format(input_unit, output_unit))
             return (1. / data) * factor
 
     @classmethod
-    def unit_convert(cls, data=1, unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None):
+    def unit_convert(cls, data=1, unit_from_num=None, unit_from_den=None, unit_to_num=None, unit_to_den=None,drop_units=False):
         """return data converted from unit_from to unit_to"""
         if unit_from_num == 'from_dataframe' or unit_from_den == 'from_dataframe':
             assert type(data) is pd.DataFrame and 'unit' in data.index.names, 'Data must be a dataframe and "unit" must be in index'
-            data = data.groupby(level='unit').apply(cls.unit_convert_helper, unit_from_num=unit_from_num, unit_from_den=unit_from_den, unit_to_num=unit_to_num, unit_to_den=unit_to_den)
+            data = data.groupby(level='unit',group_keys=False).apply(cls.unit_convert_helper, unit_from_num=unit_from_num, unit_from_den=unit_from_den, unit_to_num=unit_to_num, unit_to_den=unit_to_den)
             data = data.droplevel('unit')
         else:
             data = cls.unit_convert_helper(data, unit_from_num, unit_from_den, unit_to_num, unit_to_den)
-
+            if drop_units:
+                data = data.droplevel('unit')
         return data
 
     def exchange_rate(self, year, currency_from, currency_to=None):

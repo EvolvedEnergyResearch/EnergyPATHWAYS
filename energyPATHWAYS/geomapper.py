@@ -12,6 +12,7 @@ import logging
 import pdb
 from csvdb.data_object import get_database
 from energyPATHWAYS import time_series
+from energyPATHWAYS.util import OrderedSet
 
 class GeoMapper:
     _instance = None
@@ -58,7 +59,7 @@ class GeoMapper:
         GeoMapper.breakout_geography = util.splitclean(cfg.getParam('breakout_geography', section='GEOGRAPHY'))
         GeoMapper.demand_primary_geography = self.make_new_geography_name(GeoMapper.base_demand_primary_geography, GeoMapper.breakout_geography)
 
-        GeoMapper.base_disagg_geography = cfg.getParam('disagg_geography', section='GEOGRAPHY')
+        GeoMapper.base_disagg_geography =  cfg.getParam('disagg_geography', section='GEOGRAPHY') or cfg.getParam('demand_primary_geography', section='GEOGRAPHY')
         GeoMapper.disagg_breakout_geography = util.splitclean(cfg.getParam('disagg_breakout_geography', section='GEOGRAPHY'))
         GeoMapper.disagg_geography = self.make_new_geography_name(GeoMapper.base_disagg_geography, GeoMapper.disagg_breakout_geography)
 
@@ -79,6 +80,7 @@ class GeoMapper:
     def read_geography_data(self, database_path):
         db = get_database(database_path)
         geographies_table = db.get_table("Geographies").data.astype(str)
+
         global_geographies = pd.DataFrame([[GeoMapper._global_geography, GeoMapper._global_gau]], columns=['geography', 'gau'])
         geographies_table = pd.concat((geographies_table, global_geographies))
 
@@ -218,7 +220,6 @@ class GeoMapper:
         current_geography = util.ensure_iterable(current_geography)
         converted_geography = util.ensure_iterable(converted_geography)
         union_geo = list(set(current_geography) | set(converted_geography))
-
         table = table.groupby(level=union_geo).sum()
         if normalize_as=='total':
             table = self._normalize(table, current_geography)
@@ -285,11 +286,12 @@ class GeoMapper:
         # we have a subset geography and should remove the data that is completely outside of the breakout
         if GeoMapper.cfg_gau_subset:
             levels = [n for n in df.index.names if n in self.geography_to_gau]
-            elements = [self.geography_to_gau[n] for n in levels]
+            elements = [[gau for gau in self.geography_to_gau[n] if gau in df.index.get_level_values(n)] for n in levels]
             indexer = util.level_specific_indexer(df, levels=levels, elements=elements)
             df = df.sort_index()
             df = df.loc[indexer, :]
-            return df.reset_index().set_index(df.index.names).sort_index()
+            original_index_names = df.index.names
+            return df.reset_index().set_index(original_index_names).sort_index()
         else:
             return df
 
@@ -315,8 +317,10 @@ class GeoMapper:
         foreign_gau_slice.index = foreign_gau_slice.index.rename(foreign_geography, level=current_geography)
         foreign_gau_years = foreign_gau_slice.dropna().index.get_level_values(y_or_v).unique()
         all_years = sorted(df.index.get_level_values(y_or_v).unique())
-
-        impacted_gaus_slice_reduced_years = util.df_slice(impacted_gaus_slice, foreign_gau_years, y_or_v, drop_level=False, reset_index=True)
+        try:
+            impacted_gaus_slice_reduced_years = util.df_slice(impacted_gaus_slice, foreign_gau_years, y_or_v, drop_level=False, reset_index=True)
+        except:
+            pdb.set_trace()
         foreign_gau_slice_reduced_years = util.df_slice(foreign_gau_slice, foreign_gau_years, y_or_v, drop_level=False, reset_index=True)
 
         # do the allocation, take the ratio of foreign to native, do a clean timeseries, then reconstitute the foreign gau data over all years

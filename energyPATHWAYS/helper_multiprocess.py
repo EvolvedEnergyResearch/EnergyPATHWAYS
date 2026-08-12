@@ -8,6 +8,7 @@ Created on Fri Jul 29 10:12:07 2016
 from energyPATHWAYS import config as cfg
 import logging
 from multiprocessing import Pool
+from pyomo.opt import SolverFactory
 #import util
 #import numpy as np
 import traceback

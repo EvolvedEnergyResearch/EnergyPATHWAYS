@@ -305,7 +305,11 @@ def df_slice(df, elements, levels, drop_level=True, reset_index=False, return_no
         # remove levels if they are not in the df
         elements, levels = zip(*[(e, l) for e, l in zip(elements, levels) if l in df.index.names])
         result = df.xs(elements, level=levels, drop_level=drop_level)
-        df = result.reset_index().set_index(result.index.names) if reset_index else result
+        if reset_index:
+            original_index_names = result.index.names
+            df = result.reset_index().set_index(original_index_names)
+        else:
+            df = result
     if not len(df) and return_none:
         return None
     else:
@@ -372,6 +376,7 @@ def level_specific_indexer(df, levels, elements, axis=0):
         names = df.columns.names
     indexer = [slice(None)] * len(names)
     for level, element in zip(levels, elements):
+        #element = [x for x in element if x in df.index.get_level_values(level)]
         if axis == 0:
 #            indexer[df.index.names.index(level)] = ensure_iterable_and_not_string(element)
             indexer[df.index.names.index(level)] = element
@@ -400,10 +405,10 @@ def position_in_index(df, level_name):
 def elements_in_index_level(df, level_name):
     return df.index.levels[position_in_index(df, level_name)]
 
-def replace_index_name(df, replace_label, label=None, inplace=False):
+def replace_index_name(df, replace_label, label=None, inplace=True):
     " Use replace_label to replace specified index label"
     df.index.names = [replace_label if x == label else x for x in df.index.names]
-    if inplace:
+    if not inplace:
         return df
 
 def ix_excl(df, exclude=None,axis=0):
@@ -492,7 +497,7 @@ def is_numeric(obj):
     """
     try:
         float(obj)
-        return True
+        return False if type(obj) is bool else True
     except:
         return False
 
@@ -641,10 +646,9 @@ def nearest_index(array, value):
 
 
 def replace_index_label(df, dct, level_name):
-    index = df.index
     level = position_in_index(df, level_name)
-    index.set_levels([[dct.get(item, item) for item in names] if i == level else names
-                      for i, names in enumerate(index.levels)], inplace=True)
+    df.index = df.index.set_levels([[dct.get(item, item) for item in names] if i == level else names
+                      for i, names in enumerate(df.index.levels)])
 
 
 def difference_in_df_elements(a, b, ignore_levels=None, return_bool=True):
@@ -718,7 +722,7 @@ def get_elements_from_level(df, level_name):
 class DfOper:
     @staticmethod
     def add(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, '+', expandable, collapsible, join, fill_value, non_expandable_levels)
+        return DfOper._operation_helper(df_iter, '+', expandable, collapsible, join, fill_value, non_expandable_levels,reindex=True)
 
     @staticmethod
     def mult(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
@@ -730,18 +734,18 @@ class DfOper:
 
     @staticmethod
     def subt(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, '-', expandable, collapsible, join, fill_value, non_expandable_levels)
+        return DfOper._operation_helper(df_iter, '-', expandable, collapsible, join, fill_value, non_expandable_levels,reindex=True)
 
     @staticmethod
     def none(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, None, expandable, collapsible, join, fill_value, non_expandable_levels)
+        return DfOper._operation_helper(df_iter, None, expandable, collapsible, join, fill_value, non_expandable_levels,reindex=True)
 
     @staticmethod
     def repl(df_iter, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
-        return DfOper._operation_helper(df_iter, 'replace', expandable, collapsible, join, fill_value, non_expandable_levels)
+        return DfOper._operation_helper(df_iter, 'replace', expandable, collapsible, join, fill_value, non_expandable_levels,reindex=True)
 
     @staticmethod
-    def _operation_helper(df_iter, opr, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage')):
+    def _operation_helper(df_iter, opr, expandable=True, collapsible=True, join=None, fill_value=0, non_expandable_levels=('year', 'vintage'),reindex=False):
         if not len(df_iter) or all([df is None for df in df_iter]):
             return None
         expandable = DfOper.fill_default_char(expandable, len(df_iter))
@@ -749,14 +753,15 @@ class DfOper:
         df_iter = DfOper.replace_none_in_first_position(df_iter, opr)
         return_df = None
         for i, df in enumerate(df_iter):
-            if df is None:
+            if df is None or len(df)==0:
                 continue
             return_df = df if return_df is None else \
                         DfOper._df_operation(return_df, df, opr, join, fill_value,
                                              a_can_collapse=collapsible[i-1], a_can_expand=expandable[i-1],
                                              b_can_collapse=collapsible[i], b_can_expand=expandable[i],
-                                             non_expandable_levels=non_expandable_levels)
+                                             non_expandable_levels=non_expandable_levels,reindex=reindex)
         return return_df
+
 
     @staticmethod
     def replace_none_in_first_position(df_iter, action):
@@ -787,26 +792,25 @@ class DfOper:
             return char
 
     @staticmethod
-    def _df_operation(a, b, action, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand, non_expandable_levels):
+    def _df_operation(a, b, action, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand, non_expandable_levels,reindex):
         # First check for errors
         DfOper._raise_errors(a, b, action, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand)
-
-        a = a.reset_index().set_index(a.index.names) if a.index.nlevels==1 else a
-        b = b.reset_index().set_index(b.index.names) if b.index.nlevels == 1 else b
+        original_a_index_names = a.index.names
+        original_b_index_names = b.index.names
+        a = a.reset_index().set_index(original_a_index_names)
+        b = b.reset_index().set_index(original_b_index_names)
         new_a, new_b = DfOper._account_for_mismatched_elements(a, b, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand, non_expandable_levels)
 
         # multi index level differences
         names_a_not_in_b, names_b_not_in_a = difference_in_df_names(new_a, new_b)
+
         if not names_a_not_in_b and not names_b_not_in_a:
             join = join if join is not None else ('outer' if fill_value is not None else 'left')
             new_a, new_b = new_a.align(reorder_b_to_match_a(new_b, new_a), join=join, fill_value=fill_value, axis=0,
                                        copy=False)
             return DfOper._operate(new_a, new_b, action)
         else:
-            # if quick_merge: # this is still a work in progress
-            #     new_a, new_b = DfOper._quick_merge_using_concat(new_a, new_b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand)
-            # else:
-            new_a, new_b = DfOper._merge_then_separate_for_operation(new_a, new_b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand)
+            new_a, new_b = DfOper._merge_then_separate_for_operation(new_a, new_b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse, b_can_expand,reindex)
             return DfOper._operate(new_a, new_b, action)
 
     # @staticmethod
@@ -935,9 +939,9 @@ class DfOper:
 
     @staticmethod
     def _merge_then_separate_for_operation(a, b, join, fill_value, a_can_collapse, a_can_expand, b_can_collapse,
-                                           b_can_expand):
-        a_names = a.index.names
-        b_names = b.index.names
+                                           b_can_expand,reindex):
+        a_names = a.index.names if a.index.nlevels > 1 else [a.index.name]
+        b_names = b.index.names if b.index.nlevels > 1 else [b.index.name]
 
         common_names = list(set(a_names) & set(b_names))
         names_a_not_in_b, names_b_not_in_a = list(set(a_names) - set(b_names)), list(set(b_names) - set(a_names))
@@ -948,18 +952,51 @@ class DfOper:
         merged_b_cols = [str(col) + "_b" if col in a_cols else col for col in b_cols]
 
         # Eliminate levels for one when the other is not expandable
-        new_a = a.groupby(level=common_names).sum(min_count=1) if (len(names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
-        new_b = b.groupby(level=common_names).sum(min_count=1) if (len(names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
+        new_a = a.groupby(level=common_names).sum() if (len(names_a_not_in_b) > 0 and not b_can_expand) and a_can_collapse else a
+        new_b = b.groupby(level=common_names).sum() if (len(names_b_not_in_a) > 0 and not a_can_expand) and b_can_collapse else b
 
         # Reindex so that elements within levels match
-        if fill_value is not None:
-            new_a, new_b = DfOper._reindex_dfs_so_elements_match(new_a, new_b, level_names=common_names, how='intersect')
+        if fill_value is not None and reindex:
+             new_a, new_b = DfOper._reindex_dfs_so_elements_match(new_a, new_b, level_names=common_names, how='intersect')
 
         # Default for join is left unless b has more columns, then we assume we want to join on it
         if join is None:
             join = 'right' if len(b.columns) > len(a.columns) else 'left'
 
-        c = pd.merge(new_a.reset_index(), new_b.reset_index(), how=join, on=common_names, suffixes=["_a", "_b"])
+
+
+        # def merge_in_chunks(df1, df2,how,on,suffixes, chunk_size):
+        #     start_time = time.time()
+        #     chunks = []
+        #
+        #     for start in range(0, len(df1), chunk_size):
+        #         end = start + chunk_size
+        #         chunk = pd.merge(df1[start:end], df2, on=on, how=how,suffixes=suffixes)
+        #         chunks.append(chunk)
+        #
+        #     merged_df = pd.concat(chunks, ignore_index=True)
+        #     end_time = time.time()
+        #
+        #     return merged_df, end_time - start_time
+        #
+        # # Experiment with different chunk sizes
+        # chunk_sizes = [50000, 100000, 200000, 500000]
+        # results = {}
+        #
+        # for chunk_size in chunk_sizes:
+        #     merged_df, duration = merge_in_chunks(new_a.reset_index(), new_b.reset_index(), how=join, on=common_names, suffixes=["_a", "_b"],chunk_size=chunk_size)
+        #     results[chunk_size] = duration
+        #     print(f"Chunk size: {chunk_size}, Duration: {duration:.2f} seconds")
+        #
+        # # Find the fastest chunk size
+        # optimal_chunk_size = min(results, key=results.get)
+        # print(f"\nOptimal chunk size: {optimal_chunk_size}")
+
+
+
+        c = pd.merge(new_a.reset_index(), new_b.reset_index(),how=join, on=common_names, suffixes=["_a", "_b"])
+
+        #c = merge_in_chunks(new_a.reset_index(), new_b.reset_index(), how=join, on=common_names, suffixes=["_a", "_b"],chunk_size=optimal_chunk_size,)[0]
 
         new_index = [x for x in c.columns.tolist() if (x not in merged_a_cols) and (x not in merged_b_cols)]
         # This next bit of code helps return the levels in a familiar order
@@ -968,13 +1005,7 @@ class DfOper:
         average_location = [a_names.index(cand) / alen if cand in a_names else b_names.index(cand) / blen for cand in new_index]
         new_index = [new_index[ni] for ni in np.argsort(average_location)]
         c = c.set_index(new_index).sort_index()
-        # new_a, new_b = c[new_index + merged_a_cols], c[new_index + merged_b_cols]
         new_a, new_b = c[merged_a_cols], c[merged_b_cols]
-        # new_a = new_a.set_index(new_index).sort_index()
-        # new_b = new_b.set_index(new_index).sort_index()
-
-        # new_a.sort(inplace=True)
-        # new_b.sort(inplace=True)
 
         new_a = new_a.rename(columns=dict(zip(merged_a_cols, a_cols)))
         new_b = new_b.rename(columns=dict(zip(merged_b_cols, b_cols)))
@@ -1057,10 +1088,20 @@ def reindex_df_level_with_new_elements(df, level_name, new_elements, fill_value=
         new_labels = flatten_list([[tuple([z if i != index_i else n for i, z in enumerate(lab)]) for n in range(len(new_elements))] for lab in const_labels])
         full_elements = [new_elements if name == level_name else level for name, level in zip(df.index.names, df.index.levels)]
         temp = df.reindex(index=pd.MultiIndex(levels=full_elements, codes=list(zip(*new_labels)), names=df.index.names), fill_value=fill_value)
-        return temp.reset_index().set_index(temp.index.names).sort_index()
+        original_index_names = temp.index.names
+        # Create a copy to avoid modifying the original DataFrame
+        temp = temp.copy()
+        # Drop any columns that might conflict with index names
+        temp = temp.drop(columns=[col for col in temp.columns if col in original_index_names], errors='ignore')
+        return temp.reset_index().set_index(original_index_names).sort_index()
     else:
         temp = df.reindex(index=pd.Index(new_elements, name=df.index.name), fill_value=fill_value)
-        return temp.reset_index().set_index(temp.index.names).sort_index()
+        original_index_names = temp.index.names
+        # Create a copy to avoid modifying the original DataFrame
+        temp = temp.copy()
+        # Drop any columns that might conflict with index names
+        temp = temp.drop(columns=[col for col in temp.columns if col in original_index_names], errors='ignore')
+        return temp.reset_index().set_index(original_index_names).sort_index()
 
 def find_weibul_beta(mean_lifetime, lifetime_variance):
     """http://interstat.statjournals.net/YEAR/2000/articles/0010001.pdf"""

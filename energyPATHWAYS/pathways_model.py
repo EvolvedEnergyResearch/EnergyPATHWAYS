@@ -3,7 +3,7 @@ __author__ = 'Ben Haley & Ryan Jones'
 import os
 from energyPATHWAYS.demand import Demand
 from energyPATHWAYS import util
-from energyPATHWAYS.outputs import Output
+from energyPATHWAYS.outputs import Output, compress_and_remove, special_shapes_export
 import shutil
 from energyPATHWAYS import config as cfg
 import pandas as pd
@@ -23,14 +23,22 @@ class PathwaysModel(object):
     def __init__(self, scenario_id):
         self.scenario_id = scenario_id
         self.scenario = Scenario(self.scenario_id)
+        cfg.scenario_name = scenario_id
         self.outputs = Output()
         self.demand = Demand(self.scenario)
         self.demand_solved = False
 
-    def run(self, load_demand, export_results, save_models, shape_owner):
+    def run(self, load_demand, export_results, save_models, shape_owner, scenario_id):
+        self.scenario_id = scenario_id
+        self.scenario = Scenario(self.scenario_id)
+        cfg.scenario_name = scenario_id
+        self.demand.scenario = self.scenario
+
         if os.path.isfile(os.path.join(cfg.workingdir, self.scenario_id, 'solved.true')):
             os.remove(os.path.join(cfg.workingdir, self.scenario_id, 'solved.true'))
-        self.scenario = Scenario(self.scenario_id)
+        if os.path.isfile(os.path.join(cfg.workingdir, self.scenario_id, 'demand_outputs', '_clean_timeseries_debug.csv')):
+            os.remove(os.path.join(cfg.workingdir, self.scenario_id, 'demand_outputs', '_clean_timeseries_debug.csv'))
+        # self.scenario = Scenario(self.scenario_id)
         rio_scenario = self.scenario_id
         if shape_owner:
             if cfg.getParamAsBoolean('shape_check', section='CALCULATION_PARAMETERS'):
@@ -42,25 +50,26 @@ class PathwaysModel(object):
 
         if not load_demand:
             self.calculate_demand(save_models)
+            if os.path.isfile(os.path.join(cfg.workingdir, self.scenario_id, 'demand_outputs', '_clean_timeseries_debug.csv')):
+                compress_and_remove(os.path.join(cfg.workingdir, self.scenario_id, 'demand_outputs', '_clean_timeseries_debug.csv'))
 
         ############ HELPER FLAG IF WE JUST WANT TO REDO THE SHAPES AFTER LOADING A DEMAND-SIDE PICKLE
-        self.redo_shapes = False
-        self.special_shapes_write = False
+        self.redo_shapes = True
         ############
         if load_demand and export_results and self.redo_shapes:
+            # self.demand.aggregate_results()
             self.demand.electricity_reconciliation = None
             self.demand.pass_electricity_reconciliation()
             self.demand.output_subsector_electricity_profiles()
 
         if self.demand_solved and export_results:
-            self.demand.aggregate_results()
-            export = ep2rio.RioExport(self)
-            export.write_all()
+            if cfg.getParamAsBoolean('ep2rio_prep', section='CALCULATION_PARAMETERS'):
+                export = ep2rio.RioExport(self, shape_owner)
+                export.write_all()
             self.export_result_to_csv()
 
-
-        with open(os.path.join(cfg.workingdir, self.scenario_id, 'solved.true'), 'w'):
-            pass
+            with open(os.path.join(cfg.workingdir, self.scenario_id, 'solved.true'), 'w'):
+                pass
 
     def calculate_demand(self, save_models):
         self.demand.setup_and_solve()
@@ -90,9 +99,9 @@ class PathwaysModel(object):
         for attribute in dir(res_obj):
             if self.redo_shapes and "_profiles" not in attribute:
                 continue
-            if self.special_shapes_write and "_profiles" in attribute:
+            if cfg.getParamAsBoolean('dod_special_format_shapes_export', section='DEMAND_OUTPUT_DETAIL') and "_profiles" in attribute:
                 df = getattr(res_obj, attribute)
-                self.special_shapes_export(df)
+                special_shapes_export(df, self.scenario_id)
                 continue
             if isinstance(getattr(res_obj, attribute), list):
                 for df in getattr(res_obj, attribute):
@@ -103,20 +112,3 @@ class PathwaysModel(object):
                 clean_and_write(result_df, attribute)
             else:
                 continue
-
-    def special_shapes_export(self, df):
-        df = df.round(0)
-        df = df.astype(int)
-        df_summary = df.groupby(level=[ind for ind in df.index.names if ind not in ['subsector']]).sum()
-        df_summary = df_summary.squeeze().unstack('year')
-        Output.write(df_summary, 'summary_shapes.csv', os.path.join(cfg.workingdir, 'shape_outputs', self.scenario_id), append_when_existing=False)
-        groups = df.groupby(level=['year'])
-        for i, values_slice in groups:
-            values_slice = values_slice.xs(i, level='year')
-            values_slice = values_slice.squeeze().unstack(GeoMapper.demand_primary_geography)
-            values_slice = values_slice.reorder_levels(['sector', 'subsector', 'weather_datetime']).sort_index()
-            # del values_slice['puerto rico']
-            # del values_slice['quebec (state)']
-            # del values_slice['alaska']
-            # del values_slice['hawaii']
-            Output.write(values_slice, '{}.csv'.format(i), os.path.join(cfg.workingdir, 'shape_outputs', self.scenario_id), compression='gzip', append_when_existing=False)

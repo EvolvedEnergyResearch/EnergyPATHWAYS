@@ -12,6 +12,7 @@ from energyPATHWAYS.shared_classes import Stock
 from energyPATHWAYS.generated import schema
 from energyPATHWAYS.geomapper import GeoMapper
 from energyPATHWAYS.unit_converter import UnitConverter
+from energyPATHWAYS.util import is_numeric
 
 class SubDemand():
     def __init__(self):
@@ -81,6 +82,10 @@ class DemandStock(schema.DemandStock, Stock):
         self.levelized_costs = defaultdict(dict)
         self.annual_costs = defaultdict(dict)
         self.annual_costs_documentation = defaultdict(dict)
+        if is_numeric(self.specify_stocks_past_current_year):
+            self.specify_stocks_past_current_year = int(self.specify_stocks_past_current_year)
+        else:
+            self.specify_stocks_past_current_year = True if str(self.specify_stocks_past_current_year).lower()=='true' else False
 
 class ServiceEfficiency(schema.DemandServiceEfficiency):
     def __init__(self, name, service_demand_unit, scenario=None):

@@ -22,9 +22,45 @@ import pickle
 import pdb
 import shutil
 import six
+from energyPATHWAYS.unit_converter import UnitConverter
 from energyPATHWAYS.geomapper import GeoMapper
 
 ZIP_PATTERN = re.compile('.*\.gz$', re.IGNORECASE)
+
+
+def compress_and_remove(file_path):
+    """
+    Compresses the given file into a .gzip file and attempts to remove the original file.
+
+    If removal of the original file fails, the function waits 10 seconds and tries once more.
+    If the second removal attempt fails, it prints a warning and continues without removing the file.
+
+    Parameters:
+        file_path (str): The path to the file to compress.
+
+    Raises:
+        FileNotFoundError: If the specified file does not exist.
+    """
+    if not os.path.isfile(file_path):
+        raise FileNotFoundError(f"File {file_path} not found.")
+
+    gzip_file_path = file_path + ".gzip"
+
+    # Compress the file to gzip format.
+    with open(file_path, 'rb') as f_in, gzip.open(gzip_file_path, 'wb') as f_out:
+        shutil.copyfileobj(f_in, f_out)
+
+    # Attempt to remove the original file.
+    try:
+        os.remove(file_path)
+    except Exception as e:
+        print(f"Initial removal failed: {e}. Retrying in 10 seconds...")
+        time.sleep(10)
+        try:
+            os.remove(file_path)
+        except Exception as e2:
+            print(f"Failed to remove the file after retrying: {e2}. Continuing without removing the file.")
+
 
 class Output(object):
     def __init__(self):
@@ -54,11 +90,11 @@ class Output(object):
             df = df[[int(y)>=current_year if util.is_numeric(y) else False for y in df.index.get_level_values('year')]]
         dct = cfg.outputs_id_map
         index = df.index
-        index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)], inplace=True)
+        index = index.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(index.names, index.levels)])
         index.names = [x.upper() if isinstance(x, six.string_types) else x for x in index.names]
         if isinstance(df.columns,pd.MultiIndex):
             columns = df.columns
-            columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)], inplace=True)
+            columns = columns.set_levels([[dct[name].get(item, item) for item in level] for name, level in zip(columns.names, columns.levels)])
             columns.names = [x.upper() if isinstance(x, six.string_types) else x for x in columns.names]
         else:
             df.columns = [x.upper() if isinstance(x, six.string_types) else x for x in df.columns]
@@ -331,3 +367,31 @@ def aggregate_scenario_results(scenarios, clear_results=True):
                 continue
             print("    {}.{}".format(scenario, results_folder))
             traverse_files(scenario_results, agg_results_path)
+
+def special_shapes_export(df, scenario_name, final_energy_type, output_year, weather_year, output_units='megawatt_hour'):
+    unit_conversion = UnitConverter.unit_convert(unit_from_num=cfg.calculation_energy_unit, unit_to_num=output_units)
+    df *= unit_conversion
+    df = df.round(0)
+    df = df.astype('Int64')
+
+    df = df.squeeze().unstack(GeoMapper.demand_primary_geography)
+    df = df[[col for col in df.columns if col not in ['alaska', 'hawaii']]]
+
+    write_path = os.path.join(cfg.workingdir, 'shape_outputs', 'hourly', scenario_name)
+    os.makedirs(write_path, exist_ok=True)
+    file_name = f"S{output_year}_W{weather_year}_{final_energy_type}_by_state.csv.zst"
+    df.to_csv(os.path.join(write_path, file_name), compression='zstd', index=True)
+
+    df['month'] = df.index.get_level_values('weather_datetime').month
+    df['weather_year'] = df.index.get_level_values('weather_datetime').year
+    df['hour'] = df.index.get_level_values('weather_datetime').hour
+    df = df.set_index(['weather_year', 'month', 'hour'], append=True)
+    df_mean = df.groupby(level=['subsector_aggregation', 'weather_year', 'month', 'hour']).mean()
+    df_summed = df.groupby(level=['weather_datetime', 'weather_year', 'month', 'hour']).sum()
+    df_max = df_summed.groupby(level=['weather_year', 'month', 'hour']).max()
+    df_min = df_summed.groupby(level=['weather_year', 'month', 'hour']).min()
+    write_path = os.path.join(cfg.workingdir, 'shape_outputs', 'month_hour', scenario_name)
+    os.makedirs(write_path, exist_ok=True)
+    df_mean.to_csv(os.path.join(write_path, f"S{output_year}_W{weather_year}_{final_energy_type}_by_state_mh_mean.csv.zst"), compression='zstd', index=True)
+    df_max.to_csv(os.path.join(write_path, f"S{output_year}_W{weather_year}_{final_energy_type}_by_state_mh_max.csv.zst"), compression='zstd', index=True)
+    df_min.to_csv(os.path.join(write_path, f"S{output_year}_W{weather_year}_{final_energy_type}_by_state_mh_min.csv.zst"), compression='zstd', index=True)

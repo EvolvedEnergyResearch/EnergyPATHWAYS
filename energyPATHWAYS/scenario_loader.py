@@ -39,6 +39,7 @@ class Scenario(AbstractScenario):
     def load(self):
         df = pd.read_csv(self.pathname, index_col=0)
         df.fillna('', inplace=True)
+        db = get_database()
 
         # TODO: (RJP) discuss with Ryan. Not sure this is still relevant.
         # Special case where there are no sensitivity columns. We assume the user just
@@ -69,7 +70,7 @@ class Scenario(AbstractScenario):
                 self._add_measure(tbl_name, tbl_key, idx_value)
 
             else: # sensitivity scenario
-                tbl_key = parts[1]
+                tbl_key = parts[1] if db.table_metadata(tbl_name).has_key_col else None
                 constraints = dict([tuple(c.split(':')) for c in parts[2:]])
                 sorted_constraints = list((key, constraints[key]) for key in sorted(constraints.keys()))
                 self._add_sensitivity(tbl_name, tbl_key, sens_name, sorted_constraints)
@@ -113,37 +114,6 @@ class Scenario(AbstractScenario):
 
         self._sensitivities[table][name] = sensitivity
 
-    # Deprecated
-    def load_JSON(self):
-        with open(self.pathname) as f:
-            self.top_dict = top_dict = json.load(f)
-
-        # Each scenario file has a top-level dict with one entry, keyed by scenario
-        # name, which matches the basename of the file. We sanity check this.
-        if len(top_dict) != 1:
-            keys = ", ".join(top_dict.keys())
-            raise ScenarioFileError(self.pathname, "Expected one scenario at top level, got: {}".format(keys))
-
-        try:
-            scenario_dict = top_dict[self.name]
-        except KeyError:
-            raise ScenarioFileError(self.pathname, "Scenario file is missing scenario '{}'".format(self.name))
-
-        # set legacy instance variable name (deprecated?)
-        self._name = self.name
-
-        # In the second level we have 'Supply Case' and 'Demand Case', and in each there's a 'Sensitivities' list,
-        # whose values are of the form:
-        #   {'table': 'SupplyExport', 'sensitivity': 'fossil exports 0 by 2030', 'name': 'Coal Primary - Domestic'}
-        # which we just combine. Note that the 'name' value is the value for the key col, which may not be "name".
-
-        # This data structure is used by csvdb, but not by _load_measures() and _load_sensitivity(), below.
-        # TODO: We could eliminate the redundant parsing, but it may not be worth the trouble for now.
-        for subdict in scenario_dict.values():
-            for sens in subdict.get('Sensitivities', []):
-                obj = CsvdbFilter(sens['table'], sens['name'], sens['sensitivity'])  # no constraints in JSON currently
-                self.add_filter(obj)
-
     @staticmethod
     def _index_col(measure_table):
         """Returns the name of the column that should be used to index the given type of measure"""
@@ -186,65 +156,6 @@ class Scenario(AbstractScenario):
                 tbl_dict[row[0]] = (row[1], row[2] if num_cols == 3 else None)
 
         return lookup
-
-    # Deprecated
-    def _load_sensitivities_JSON(self, sensitivities):
-        if not isinstance(sensitivities, list):
-            raise ValueError("The 'Sensitivities' for a scenario should be a list of objects containing "
-                             "the keys 'table', 'name' and 'sensitivity'.")
-
-        db = get_database()
-
-        for sensitivity_spec in sensitivities:
-            table       = sensitivity_spec['table']
-            name        = sensitivity_spec['name']
-            sensitivity = sensitivity_spec['sensitivity']
-
-            if name in self._sensitivities[table]:
-                raise ValueError("Scenario specifies sensitivity for {} {} more than once".format(table, name))
-
-            if table != "ShapeData":
-                # Check that the sensitivity actually exists in the database before using it
-                md = db.table_metadata(table)
-                filters = {'sensitivity' : sensitivity, md.key_col : name}
-                data = csv_read_table(table, **filters)
-
-                if data is None or len(data) == 0:
-                    raise ValueError("Could not find sensitivity '{}' for {} {}.".format(sensitivity, table, name))
-
-            self._sensitivities[table][name] = sensitivity
-
-    # Deprecated
-    def _load_measures(self, tree):
-        """
-        Finds all measures in the Scenario by recursively scanning the parsed json and organizes them by type
-        (i.e. table) and a "bucket_id", which is a tuple of subsector/node id and technology id. If the particular
-        measure doesn't applies to a whole subsector/node rather than a technology, the second member of the
-        bucket_id tuple will be None.
-        """
-        for key, subtree in tree.items():
-            if key.lower() == 'sensitivities':
-                self._load_sensitivities_JSON(subtree)
-
-            elif isinstance(subtree, dict):
-                self._load_measures(subtree)
-
-            elif key in self.MEASURE_CATEGORIES and isinstance(subtree, list):
-                for measure in subtree:
-                    try:
-                        bucket_id = self._bucket_lookup[key][measure]
-                    except KeyError:
-                        raise ValueError("{} scenario wants to use {} {} but no such measure was found in the database.".format(self._id, key, measure))
-
-                    if measure in self._measures[key][bucket_id]:
-                        raise ValueError("Scenario uses {} {} more than once.".format(key, measure))
-
-                    self._measures[key][bucket_id].append(measure)
-
-            elif not isinstance(subtree, six.string_types):
-                pdb.set_trace()
-                raise ValueError("Encountered an uninterpretable non-string leaf node while loading the scenario. "
-                                 "The node is '{}: {}'".format(key, subtree))
 
     def get_measures(self, category, subsector_or_node_id, tech_id=None):
         """

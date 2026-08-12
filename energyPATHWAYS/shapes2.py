@@ -19,6 +19,7 @@ from energyPATHWAYS import util
 from energyPATHWAYS.data_object import DataObject
 from csvdb.table import REF_SENSITIVITY
 import functools
+import hashlib
 
 #http://stackoverflow.com/questions/27491988/canonical-offset-from-utc-using-pytz
 
@@ -36,10 +37,10 @@ def create_time_slice_elements(active_dates_index):
     business_days = pd.bdate_range(min(active_dates_index).date(), max(active_dates_index).date())
 
     time_slice_elements = {}
-    for ti in ['year', 'month', 'weekday', 'hour']:
+    for ti in ['year', 'month', 'weekday', 'day_of_week', 'hour', 'dayofyear']:
         time_slice_elements[ti] = getattr(active_dates_index, ti)
 
-    time_slice_elements['week'] = pd.Int64Index(active_dates_index.isocalendar().week)
+    time_slice_elements['week'] = pd.Index(active_dates_index.isocalendar().week,dtype="int64")
     time_slice_elements['day_type'] = np.array(['workday' if str(s.date()) in business_days else 'non-workday' for s in active_dates_index])
     time_slice_elements['hour24'] = time_slice_elements['hour'] + 1
     return time_slice_elements
@@ -73,9 +74,21 @@ def get_active_dates(years):
 
 PICKLE_NAME_DELIMITER = "^v^"
 
+def generate_hash(text, length=10):
+    # encode the string
+    encoded_text = text.encode()
+    # create a md5 hash object
+    md5_hash = hashlib.md5()
+    # hash the encoded string
+    md5_hash.update(encoded_text)
+    # get the hexadecimal representation of the hash
+    hash_string = md5_hash.hexdigest()
+    return hash_string[:length]
+
 def make_pickle_name(primary_geography, primary_subset, breakout_geography):
     pickle_tup = primary_geography, tuple(sorted(primary_subset)), tuple(breakout_geography)
-    pickle_name = PICKLE_NAME_DELIMITER.join([str(tup).replace(" ", "") for tup in pickle_tup]) + '.p'
+    hashed_text = generate_hash(PICKLE_NAME_DELIMITER.join([str(tup).replace(" ", "") for tup in pickle_tup]))
+    pickle_name = hashed_text + '.p'
     return pickle_name
 
 class ShapeContainer(object):
@@ -91,14 +104,18 @@ class ShapeContainer(object):
         self.active_dates_index = get_active_dates(self.cfg_weather_years)
         self.num_active_years = num_active_years(self.active_dates_index)
 
-        self.load_shape_base_year = max(int(np.round(np.mean(self.cfg_weather_years))), cfg.getParamAsInt('current_year', section='TIME'))
+        self.load_shape_base_year = max(int(np.round(np.min(self.cfg_weather_years))), cfg.getParamAsInt('current_year', section='TIME'))
 
         self.data = {}
+        self.shape_sums = {}
         ShapeContainer._instance = self
 
     @classmethod
-    def get_active_dates_index(cls):
-        return cls.get_instance().active_dates_index
+    def get_active_dates_index(cls, weather_year=None):
+        if weather_year is None:
+            return cls.get_instance().active_dates_index
+        else:
+            return get_active_dates(weather_year)
 
     @classmethod
     def get_instance(cls):
@@ -111,24 +128,29 @@ class ShapeContainer(object):
         return cls.get_instance().load_shape_base_year
 
     @staticmethod
-    def shape_normalize(df, num_active_years):
+    def shape_normalize(df, shape_sum, num_active_years):
+        df['weather_year'] = df.index.get_level_values('weather_datetime').year
+        df = df.set_index('weather_year', append=True)
         group_to_normalize = [n for n in df.index.names if n != 'weather_datetime']
         # here is a special case where I have p_min and p_max in my dispatch constraints and these should not be normalized
         if 'dispatch_constraint' in group_to_normalize:
             temp = df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum()) * num_active_years
+            temp = util.DfOper.mult((temp, shape_sum))
             indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [['p_min', 'p_max']])
             temp.loc[indexer, :] = df.loc[indexer, :]
             norm_df = temp
         else:
             norm_df = df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum()) * num_active_years
+            norm_df = util.DfOper.mult((norm_df, shape_sum))
+        norm_df = norm_df.reset_index('weather_year', drop=True)
         return norm_df
 
     @classmethod
-    def get_values(cls, shape_name):
+    def get_values(cls, shape_name, weather_year=None):
         # data should be pre-filtered by sensitivity names and years
         instance = cls.get_instance()
-        if shape_name in instance.data:
-            return instance.data[shape_name]
+        if (shape_name, weather_year) in instance.data:
+            return instance.data[(shape_name, weather_year)]
 
         if shape_name not in instance.shape_meta['name'].values:
             raise ValueError("Shape name '{}' not found in the database. Please check for agreement between Shapes and the files that reference shape names".format(shape_name))
@@ -136,19 +158,41 @@ class ShapeContainer(object):
         sensitivity_name = str(instance.scenario_obj.get_sensitivity('ShapeData', shape_name) or '_reference_')
         geography = GeoMapper.demand_primary_geography
         pickle_name = make_pickle_name(geography, GeoMapper.primary_subset, GeoMapper.breakout_geography)
+        shape_sum_csv_name = pickle_name.replace('.p', '_sum.csv')
+        weather_year = weather_year or instance.cfg_weather_years
 
         df = []
         index_order = None
-        for year in instance.cfg_weather_years:
+        for year in util.ensure_iterable(weather_year):
             pickle_path = os.path.join(instance.database_path, 'ShapeData', 'pickles', shape_name, str(year), sensitivity_name, pickle_name)
             shape_obj = ShapePickler.load_pickle(pickle_path)
             index_order = shape_obj.values.index.names if index_order is None else index_order
             df.append(shape_obj.values.reorder_levels(index_order).sort_index())
         result = pd.concat(df)
-        result = ShapeContainer.shape_normalize(result, num_active_years=len(df))
-        instance.data[shape_name] = result
 
-        return instance.data[shape_name]
+        if shape_name not in instance.shape_sums:
+            shape_sum = []
+            for year in instance.cfg_weather_years:
+                shape_sum_path = os.path.join(instance.database_path, 'ShapeData', 'pickles', shape_name, str(year), sensitivity_name, shape_sum_csv_name)
+                temp_df = pd.read_csv(shape_sum_path)
+                temp_df['weather_year'] = year
+                shape_sum.append(temp_df)
+            shape_sum = pd.concat(shape_sum)
+            shape_sum = shape_sum.set_index([col for col in shape_sum.columns if col != 'value']).sort_index()
+            current_year = cfg.getParamAsInt('current_year', section='TIME')
+            normal_years = list(set(range(current_year-5, current_year+6)).intersection(instance.cfg_weather_years))
+            # We want to normalize just over 2015-2025
+            shape_sum_normal = shape_sum[shape_sum.index.get_level_values('weather_year').isin(normal_years)].groupby(level=[name for name in shape_sum.index.names if name != 'weather_year']).mean()
+            shape_sum = util.DfOper.divi((shape_sum, shape_sum_normal))
+            # shape_sum = shape_sum.groupby(level=[name for name in shape_sum.index.names if name != 'weather_year']).transform(lambda x: x / x.mean())
+            instance.shape_sums[shape_name] = shape_sum
+
+        shape_sums_slice = instance.shape_sums[shape_name][instance.shape_sums[shape_name].index.get_level_values('weather_year').isin(util.ensure_iterable(weather_year))]
+        result = ShapeContainer.shape_normalize(result, shape_sums_slice, num_active_years=len(df))
+        save_weather_year = None if weather_year is instance.cfg_weather_years else weather_year
+        instance.data[(shape_name, save_weather_year)] = result
+
+        return instance.data[(shape_name, save_weather_year)]
 
 
 class ShapePickler():
@@ -158,58 +202,9 @@ class ShapePickler():
         self.base_path = os.path.join(database_path, 'ShapeData', 'pickles')
         db = CsvDatabase.get_database(database_path)
         self.shape_meta = db.get_table("Shapes").data
-        self.shape_objects = {}
         self.shapes_file_map = db.shapes.file_map
         self.cfg_weather_years = [int(y) for y in cfg.getParam('weather_years', section='TIME').split(',')]
-
-        added_shape_names = []
-        logging.info('Comparing shape pickles to ensure they are up to date...')
-        for i, meta in self.shape_meta.iterrows():
-            if meta['name'] not in db.shapes.file_map:
-                logging.error('Skipping shape {}: cannot find shape data'.format(meta['name']))
-                continue
-
-            if meta['name'] in added_shape_names:
-                logging.error('Duplicate data found in SHAPE_META for shape {}'.format(meta['name']))
-                continue
-
-            if not meta['is_active']:
-                logging.info('Skipping inactive shape {}'.format(meta['name']))
-                continue
-
-            raw_values = db.shapes.get_slice(meta['name'])
-
-            if meta['shape_type'] == 'time slice':
-                years = self.cfg_weather_years
-                raw_values = raw_values.set_index([c for c in raw_values.columns if c != 'value']).sort_index()
-                raw_values = pd.concat([raw_values]*len(years), keys=years, names=['weather_year'])
-            elif meta['shape_type'] == 'weather date':
-                raw_values = self.pre_process_weather_datetime_shape(raw_values, meta)
-                years = sorted(set(raw_values.index.get_level_values('weather_year')))
-                missing_years = list(set(self.cfg_weather_years) - set(years))
-                if len(missing_years):
-                    raise ValueError('Model configuration has specified weather years {}, and shape name {} is missing data for years {} in the input files'.format(self.cfg_weather_years, meta['name'], missing_years))
-            else:
-                raise ValueError("Unrecognized shape_type '{}' for shape name '{}'".format(meta['shape_type'], meta['name']))
-
-            raw_values.index = raw_values.index.rename(meta['geography'], level='gau')
-            group_levels = ['weather_year', 'sensitivity'] if 'sensitivity' in raw_values.index.names else ['weather_year']
-            groups = raw_values.groupby(level=group_levels)
-            for i, raw_values_slice in groups:
-                weather_year, sensitivity_name = (int(i), REF_SENSITIVITY) if type(i) is int else (int(i[0]), i[1])
-                if weather_year not in self.cfg_weather_years:
-                    continue
-                if self.pickles_up_to_date(i, raw_values_slice, meta):
-                    logging.info('{}...PASS'.format((meta['name'], i)))
-                    continue
-                else:
-                    logging.info('{}...NEEDS UPDATING'.format((meta['name'], i)))
-                self.shape_objects[(meta['name'], i)] = ShapeObj(raw_values_slice, meta, self.base_path)
-            added_shape_names.append(meta['name'])
-
-        if len(self.shape_objects):
-            self.process_active_shapes()
-        print("Shape pickles are complete")
+        self.process_active_shapes()
 
     def pre_process_weather_datetime_shape(self, raw_values, meta):
         raw_values['weather_datetime'] = pd.to_datetime(raw_values['weather_datetime'], infer_datetime_format=True)
@@ -234,7 +229,6 @@ class ShapePickler():
                 else:
                     print("unable to read from pickle path {}".format(pickle_path))
                     input("press any key to retry")
-
 
     def pickles_up_to_date(self, group, raw_values_slice, meta):
         shape_name = meta['name']
@@ -262,21 +256,66 @@ class ShapePickler():
             shutil.rmtree(os.path.join(self.base_path, shape_name))
             return False
 
-    def process_active_shapes(self):
-        logging.info(' mapping data for:')
+    def _shape_task_iterator(self):
+        db = CsvDatabase.get_database(self.database_path)
+        added_shape_names = []
+        logging.info('Comparing shape pickles to ensure they are up to date...')
+        for _, meta in self.shape_meta.iterrows():
+            if meta['name'] not in db.shapes.file_map:
+                logging.error('Skipping shape {}: cannot find shape data'.format(meta['name']))
+                continue
+            if meta['name'] in added_shape_names:
+                logging.error('Duplicate data found in SHAPE_META for shape {}'.format(meta['name']))
+                continue
+            if not meta['is_active']:
+                logging.info('Skipping inactive shape {}'.format(meta['name']))
+                continue
+            raw_values = db.shapes.get_slice(meta['name'], load_all=False, archive=False)
+            if meta['shape_type'] == 'time slice':
+                years = self.cfg_weather_years
+                raw_values = raw_values.set_index([c for c in raw_values.columns if c != 'value']).sort_index()
+                raw_values = pd.concat([raw_values]*len(years), keys=years, names=['weather_year'])
+            elif meta['shape_type'] == 'weather date':
+                raw_values = self.pre_process_weather_datetime_shape(raw_values, meta)
+                years = sorted(set(raw_values.index.get_level_values('weather_year')))
+                missing_years = list(set(self.cfg_weather_years) - set(years))
+                if len(missing_years):
+                    raise ValueError('Model configuration has specified weather years {}, and shape name {} is missing data for years {} in the input files'.format(self.cfg_weather_years, meta['name'], missing_years))
+            else:
+                raise ValueError("Unrecognized shape_type '{}' for shape name '{}'".format(meta['shape_type'], meta['name']))
 
-        if True or cfg.getParamAsBoolean('parallel_process', section='CALCULATION_PARAMETERS'):
+            raw_values.index = raw_values.index.rename(meta['geography'], level='gau')
+            group_levels = ['weather_year', 'sensitivity'] if 'sensitivity' in raw_values.index.names else ['weather_year']
+            groups = raw_values.groupby(level=group_levels, sort=False)
+            for i, raw_values_slice in groups:
+                weather_year, sensitivity_name = (int(i), REF_SENSITIVITY) if type(i) is int else (int(i[0]), i[1])
+                if weather_year not in self.cfg_weather_years:
+                    continue
+                if self.pickles_up_to_date(i, raw_values_slice, meta):
+                    logging.info('{}...PASS'.format((meta['name'], i)))
+                    continue
+                else:
+                    logging.info('{}...NEEDS UPDATING'.format((meta['name'], i)))
+                yield ShapeObj(raw_values_slice, meta, self.base_path)
+            added_shape_names.append(meta['name'])
+
+    def process_active_shapes(self, parallel_process=True):
+        logging.info(' mapping data for:')
+        tasks = self._shape_task_iterator()
+        if parallel_process:
             pool = pathos.multiprocessing.Pool(processes=cfg.getParamAsInt('num_cores', section='CALCULATION_PARAMETERS'), maxtasksperchild=1)
-            pool.map(helper_multiprocess.process_shapes, self.shape_objects.values(), chunksize=1)
+            for _ in pool.imap(helper_multiprocess.process_shapes, tasks, chunksize=1):
+                pass
             pool.close()
             pool.join()
         else:
-            for name in self.shape_objects:
-                self.shape_objects[name].process_shape()
+            for shape_obj in tasks:
+                shape_obj.process_shape()
+        print("Shape pickles are complete")
 
 
 class ShapeObj(DataObject):
-    time_slice_col = ['year', 'month', 'week', 'weekday', 'day_type', 'hour']
+    time_slice_col = ['year', 'dayofyear', 'month', 'week', 'weekday', 'day_type', 'day_of_week', 'hour']
     def __init__(self, raw_values, meta, base_path):
         self.meta = meta
         self.raw_values_check = raw_values.copy()
@@ -367,7 +406,7 @@ class ShapeObj(DataObject):
             final_data = util.reindex_df_level_with_new_elements(raw_values, 'weather_datetime', self.active_dates_index) # this step is slow, consider replacing
             if final_data.isnull().values.any():
                 # do some interpolation to fill missing values, that that still doesn't work to remove the NaNs, we raise an error
-                final_data = final_data.groupby(level=[name for name in final_data.index.names if name!='weather_datetime']).apply(pd.DataFrame.interpolate).ffill().bfill()
+                final_data = final_data.groupby(level=[name for name in final_data.index.names if name!='weather_datetime'],group_keys=False).apply(pd.DataFrame.interpolate).ffill().bfill()
                 if final_data.isnull().values.any():
                     raise ValueError('Weather data for shape {} did not give full coverage of the active dates:\n {}'.format(self.name, final_data[final_data.isnull().values]))
         elif self.shape_type=='time slice':
@@ -421,33 +460,18 @@ class ShapeObj(DataObject):
         with open(os.path.join(self.pickle_path, pickle_name), 'wb') as outfile:
             pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
 
+        sum_for_normalization = self.values.groupby(level=[n for n in self.values.index.names if n!='weather_datetime']).sum()
+        pickle_name = pickle_name.replace('.p', '_sum.csv')
+        sum_for_normalization.to_csv(os.path.join(self.pickle_path, pickle_name))
+
     def add_timeshift_type(self):
         """Later these shapes will need a level called timeshift type, and it is faster to add it now if it doesn't already have it"""
         if 'timeshift_type' not in self.values.index.names:
             self.values['timeshift_type'] = 'native'
             self.values = self.values.set_index('timeshift_type', append=True).swaplevel('timeshift_type', 'weather_datetime').sort_index()
 
-    # def normalize(self, df):
-    #     group_to_normalize = [n for n in df.index.names if n!='weather_datetime']
-    #     # here is a special case where I have p_min and p_max in my dispatch constraints and these should not be normalized
-    #     if 'dispatch_constraint' in group_to_normalize:
-    #         # this first normailization does what we need for hydro pmin and pmax, which is a special case of normalization
-    #         combined_map_df = util.DfOper.mult((self.map_df_tz, self.map_df_primary))
-    #         normalization_factors = combined_map_df.groupby(level=self.primary_geography).sum()
-    #         norm_df = util.DfOper.divi((df, normalization_factors))
-    #
-    #         temp = norm_df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
-    #         indexer = util.level_specific_indexer(temp, 'dispatch_constraint', [['p_min', 'p_max']])
-    #         temp.loc[indexer, :] = norm_df.loc[indexer, :]
-    #
-    #         norm_df = temp
-    #     else:
-    #         norm_df = df.groupby(level=group_to_normalize).transform(lambda x: x / x.sum())*self.num_active_years
-    #
-    #     return norm_df
-
     def convert_energy_to_power(self, df):
-        lengths = df.groupby(level=self._active_time_keys).apply(len).to_frame().rename(columns={0: 'len'})
+        lengths = df.groupby(level=self._active_time_keys,group_keys=False).apply(len).to_frame().rename(columns={0: 'len'})
         # here is a special case where I have p_min and p_max in my dispatch constraints and these should not be normalized
         if 'dispatch_constraint' in df.index.names:
             # this first normailization does what we need for hydro pmin and pmax, which is a special case of normalization
@@ -465,8 +489,7 @@ class ShapeObj(DataObject):
         geography_map_key = self.geography_map_key or GeoMapper.default_geography_map_key
 
         # create dataframe with map from one geography to another
-        # we always want to normalize as a total here because we will re-sum over time zone later
-        self.map_df_tz = GeoMapper.get_instance().map_df(self.geography, 'time zone', normalize_as='total', map_key=geography_map_key)
+        self.map_df_tz = GeoMapper.get_instance().map_df(self.geography, 'time zone', normalize_as=self.input_type, map_key=geography_map_key)
 
         mapped_data = util.DfOper.mult([df, self.map_df_tz])
         mapped_data = mapped_data.swaplevel('weather_datetime', -1)
@@ -476,8 +499,14 @@ class ShapeObj(DataObject):
         """ maps the dataframe to primary geography
         """
         geography_map_key = self.geography_map_key or GeoMapper.default_geography_map_key
-        # here we map to two geographies, the time zone and the model primary geography. If we don't do this it causes a bug whenever disaggregating input data
-        self.map_df_primary = GeoMapper.get_instance().map_df(self.geography, ['time zone', self.primary_geography], normalize_as=self.input_type, map_key=geography_map_key)
+        # here we map to two geographies, the time zone and the model primary geography. If we don't do this it causes a bug whenever disaggregating input data:
+        # if something comes in on global, for example, it will have global and time zone levels at this point. If we only map with global and primary geography, then multiply, the time zone gets duplicated for each primary geography
+        # this looses the time zone information.
+        if self.input_type=='intensity':
+            self.map_df_primary = GeoMapper.get_instance().map_df(self.primary_geography, ['time zone', self.geography], normalize_as='total', map_key=geography_map_key)
+        elif self.input_type=='total':
+            self.map_df_primary = GeoMapper.get_instance().map_df(self.primary_geography, ['time zone', self.geography], normalize_as='intensity', map_key=geography_map_key)
+
         mapped_data = util.DfOper.mult((df, self.map_df_primary), fill_value=np.nan)
 
         if self.geography != self.primary_geography and self.geography != 'time zone':
@@ -525,76 +554,4 @@ class ShapeObj(DataObject):
 
         local_df = pd.concat(df_list)
         return local_df.sort_index()
-
-    @staticmethod
-    def ensure_feasible_flexible_load(df):
-        names = [n for n in df.index.names if n != 'weather_datetime']
-        cum_df = df.groupby(level=names).cumsum()
-
-        add_to_1 = min(0, (cum_df[2] - cum_df[1]).min())*1.01
-        subtract_from_3 = min(0, (cum_df[3] - cum_df[2]).min())*1.01
-
-        if add_to_1 < 0:
-            df.iloc[0,0] += add_to_1
-            cum_df = df[1].groupby(level=names).cumsum()
-            make_zero = np.nonzero(cum_df.values<0)[0]
-            if len(make_zero):
-                replace = make_zero[-1] + 1
-                df.iloc[make_zero, 0] = 0
-                df.iloc[replace, 0] = cum_df.iloc[replace]
-            df.iloc[-1, 0] += (df[2].sum() - df[1].sum())
-
-        if subtract_from_3 < 0:
-            df.iloc[0,2] -= subtract_from_3
-            cum_df = df[3].groupby(level=names).cumsum()
-            cum_diff = df[2].sum() - cum_df
-            make_zero = np.nonzero(cum_diff.values<0)[0][1:]
-            if len(make_zero):
-                replace = make_zero[0] - 1
-                df.iloc[make_zero, 2] = 0
-                df.iloc[replace, 2] += cum_diff.iloc[replace]
-            else:
-                df.iloc[-1, 2] += cum_diff.iloc[-1]
-
-        cum_df = df.groupby(level=names).cumsum()
-
-        if ((cum_df[1] - cum_df[2]) > 1E-12).any():
-            logging.error('Infeasible flexible load constraints were created where the delayed load shape is greater than the native load shape')
-            logging.error(cum_df[cum_df[1] > cum_df[2]])
-            pdb.set_trace()
-
-        if ((cum_df[2] - cum_df[3]) > 1E-12).any():
-            logging.error('Infeasible flexible load constraints were created where the advanced load shape is less than the native load shape')
-            logging.error(cum_df[cum_df[2] > cum_df[3]])
-            pdb.set_trace()
-
-        return df
-
-    @staticmethod
-    def produce_flexible_load(shape_df, percent_flexible=None, hr_delay=None, hr_advance=None):
-        hr_delay = 0 if hr_delay is None else int(hr_delay)
-        hr_advance = 0 if hr_advance is None else int(hr_advance)
-
-        native_slice = shape_df.copy()
-        native_slice_stacked = pd.concat([native_slice]*3, keys=['delayed','native','advanced'], names=['timeshift_type'])
-
-        pflex_stacked = pd.concat([percent_flexible]*3, keys=['delayed','native','advanced'], names=['timeshift_type'])
-
-        # positive hours is a shift forward, negative hours a shift back
-        shift = lambda df, hr: df.shift(hr).ffill().fillna(value=0)
-
-        def fix_first_point(df, hr):
-            df.iloc[0] += native_slice.iloc[:hr].sum().sum()
-            return df
-
-        non_weather = [n for n in native_slice.index.names if n!='weather_datetime']
-
-        delay_load = native_slice.groupby(level=non_weather).apply(shift, hr=hr_delay)
-        advance_load = native_slice.groupby(level=non_weather).apply(shift, hr=-hr_advance)
-        advance_load = advance_load.groupby(level=non_weather).transform(fix_first_point, hr=hr_advance)
-
-        full_load = pd.concat([advance_load, delay_load, native_slice], keys=['advanced','delayed','native'], names=['timeshift_type'])
-
-        return util.DfOper.add((util.DfOper.mult((full_load, pflex_stacked), collapsible=False),
-                                util.DfOper.mult((native_slice_stacked, 1 - pflex_stacked), collapsible=False)))
 

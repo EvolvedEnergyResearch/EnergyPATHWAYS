@@ -2,7 +2,7 @@ __author__ = 'ryan and rich'
 import logging
 import pdb
 from collections import OrderedDict
-
+import os
 import numpy as np
 import numpy_financial as npf
 import pandas as pd
@@ -11,7 +11,7 @@ from energyPATHWAYS.config import getParam, getParamAsBoolean
 from energyPATHWAYS.time_series import TimeSeries
 from energyPATHWAYS.util import (DfOper, put_in_list, get_elements_from_level, reindex_df_level_with_new_elements,remove_df_levels)
 from energyPATHWAYS.geomapper import GeoMapper
-
+from energyPATHWAYS.outputs import Output
 from csvdb.data_object import DataObject as CsvDataObject, get_database
 from csvdb.table import SENSITIVITY_COL
 
@@ -35,6 +35,7 @@ class DataObject(CsvDataObject):
         Append self to a list for our subclass
         """
         super(DataObject, self).__init__(key, scenario)
+        self.clean_timeseries_count = 1
 
     # Added for compatibility with prior implementation
     @property
@@ -72,7 +73,7 @@ class DataObject(CsvDataObject):
         return timeseries
 
     def clean_timeseries(self, attr='values', inplace=True, time_index_name='year',
-                         time_index=None, lower=None, upper=None, interpolation_method='missing', extrapolation_method='missing'):
+                         time_index=None, lower=0, upper=None, interpolation_method='missing', extrapolation_method='missing', write_timeseries=False):
         if time_index is None:
             time_index = cfg.years
         interpolation_method = self.interpolation_method if interpolation_method is 'missing' else interpolation_method
@@ -80,14 +81,61 @@ class DataObject(CsvDataObject):
         exp_growth_rate = self.extrapolation_growth if hasattr(self, 'extrapolation_growth') else None
 
         data = getattr(self, attr)
+        if lower is not None and np.any(data.values < lower):
+            lower = None
         clean_data = TimeSeries.clean(data=data, newindex=time_index, time_index_name=time_index_name,
                                       interpolation_method=interpolation_method,
                                       extrapolation_method=extrapolation_method,
                                       exp_growth_rate=exp_growth_rate).clip(lower=lower, upper=upper)
+
+        if write_timeseries and attr!='total_driver':
+            self.record_clean_timeseries(clean_data, data, time_index_name, interpolation_method, extrapolation_method, exp_growth_rate, lower, upper)
+
         if inplace:
             setattr(self, attr, clean_data)
         else:
             return clean_data
+
+    def record_clean_timeseries(self, clean_data, data, time_index_name, interpolation_method, extrapolation_method, exp_growth_rate, lower, upper):
+        clean_data_merged = clean_data.copy()
+        clean_data_merged.columns = ['clean_data']
+        clean_data_merged['raw_values'] = data
+
+        class_name = self.__class__.__name__
+
+        clean_data_merged = clean_data_merged.reset_index()
+        clean_data_merged = clean_data_merged.rename(columns={self.current_geography: 'gau'})
+        clean_data_merged['geography'] = self.geography
+
+        other_index_columns = [col for col in clean_data_merged.columns if col not in ['clean_data', 'raw_values', 'year', 'vintage', 'gau', 'geography']]
+        num = 1
+        for col in other_index_columns:
+            if col in GeoMapper.geography_to_gau:
+                # we have a driver geography
+                clean_data_merged['driver_geography'] = col
+                clean_data_merged = clean_data_merged.rename(columns={col: 'driver_gau'})
+            else:
+                clean_data_merged['other_index_{}'.format(num)] = col
+                clean_data_merged = clean_data_merged.rename(columns={col: 'oth_{}'.format(num)})
+                num += 1
+
+        for col in ['other_index_1', 'oth_1', 'other_index_2', 'oth_2', 'driver_geography', 'driver_gau', 'year', 'vintage']:
+            if col not in clean_data_merged.columns:
+                clean_data_merged[col] = None
+
+        clean_data_merged['key_col'] = getattr(self, self._key_col)
+        clean_data_merged['class_name'] = class_name
+        clean_data_merged['scenario'] = cfg.scenario_name
+        clean_data_merged['timeseries_clean_count'] = self.clean_timeseries_count
+
+        clean_data_merged = clean_data_merged.set_index(['scenario', 'class_name', 'key_col', 'geography', 'gau', 'driver_geography', 'driver_gau', 'other_index_1', 'oth_1', 'other_index_2', 'oth_2', 'year', 'vintage'])
+        clean_data_merged = clean_data_merged.sort_index()
+
+        data_save_path = os.path.join(cfg.workingdir, cfg.scenario_name, 'demand_outputs')
+        Output.write(clean_data_merged, '_clean_timeseries_debug.csv', data_save_path, append_when_existing=True)
+
+        self.clean_timeseries_count += 1
+
 
     def geo_map(self, converted_geography, attr='values', inplace=True, current_geography=None, current_data_type=None, fill_value=0.,filter_geo=True,remove_current_geography=True):
         """ maps a dataframe to another geography using relational GeographyMapdatabase table
@@ -115,7 +163,7 @@ class DataObject(CsvDataObject):
         # TODO: need to see which attrs are used, then to root out the getattr.
         if current_geography not in getattr(self, attr).index.names:
             logging.error("Dataframe being mapped doesn't have the stated current geography: {}".format(self.__class__))
-            pdb.set_trace()
+
 
         mapped_data = GeoMapper.geo_map(getattr(self, attr), current_geography, converted_geography,
                                       current_data_type, geography_map_key, fill_value, filter_geo,remove_current_geography=remove_current_geography)
@@ -188,7 +236,7 @@ class DataObject(CsvDataObject):
 
     def remap(self, map_from='raw_values', map_to='values', drivers=None, time_index_name='year',
               time_index=None, fill_timeseries=True, interpolation_method='missing', extrapolation_method='missing',
-              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=None, upper=None, filter_geo=True, driver_geography=None, missing_intensity_geos=False):
+              converted_geography=None, current_geography=None, current_data_type=None, fill_value=0., lower=0, upper=None, filter_geo=True, driver_geography=None, missing_intensity_geos=False):
         """ Map data to drivers and geography
         Args:
             map_from (string): starting variable name (defaults to 'raw_values')
@@ -196,13 +244,16 @@ class DataObject(CsvDataObject):
             drivers (list of or single dataframe): drivers for the remap
             input_type_override (string): either 'total' or 'intensity' (defaults to self.type)
         """
-        driver_geography    = driver_geography or getParam('disagg_geography', section='GEOGRAPHY')
+        driver_geography    = driver_geography or GeoMapper.disagg_geography
         converted_geography = converted_geography
         current_data_type   = current_data_type or self.input_type
-        current_geography   = current_geography or self.geography
+        current_geography = self.current_geography = current_geography or self.geography
         time_index = self._get_active_time_index(time_index, time_index_name)
 
         map_df = getattr(self, map_from)
+        if map_df is None:
+            setattr(self, map_to, None)
+            return
         index_names = self._get_df_index_names_in_a_list(map_df)
         if current_geography not in index_names:
             raise ValueError('Current geography does not match the geography of the dataframe in remap')
@@ -212,32 +263,27 @@ class DataObject(CsvDataObject):
         df, current_geography = self.account_for_foreign_gaus(map_from, current_data_type, current_geography)
 
         setattr(self, map_to, df)
-
-        # This happens when we are on a geography level and some of the elements are missing. Such as no PR when we have all the other U.S. States.
-        setattr(self, map_to, self._add_missing_geographies(df, current_geography, current_data_type, missing_intensity_geos,fill_value=fill_value,filter_geo=filter_geo))
-
         if drivers is None or len(drivers) == 0:
             # we have no drivers, just need to do a clean timeseries and a geomap
             if fill_timeseries:
-                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,
-                                      interpolation_method=interpolation_method,
-                                      extrapolation_method=extrapolation_method,
-                                      lower=lower, upper=upper)
+                self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, time_index_name=time_index_name,interpolation_method=interpolation_method,extrapolation_method=extrapolation_method,lower=lower, upper=upper)
             if current_geography != converted_geography:
+                # This happens when we are on a geography level and some of the elements are missing. Such as no PR when we have all the other U.S. States.
+                setattr(self, map_to, self._add_missing_geographies(getattr(self,map_to), current_geography, current_data_type, missing_intensity_geos, fill_value=fill_value, filter_geo=filter_geo))
                 self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography,
                              current_data_type=current_data_type, fill_value=fill_value, filter_geo=filter_geo)
         else:
             # becomes an attribute of self just because we may do a geomap on it
             driver_dfs = put_in_list(drivers)
+
+
             self.error_check_drivers(getattr(self, map_to), driver_dfs)
             self.total_driver = DfOper.mult(driver_dfs)
             #self.total_driver_unitless = DfOper.add([x.groupby(level=[y for y in getattr(self,map_to).index.names if y in x.index.names]).apply(lambda x:x/x.sum()) for x in driver_dfs],expandable=False)
             # turns out we don't always have a year or vintage column for drivers. For instance when linked_demand_technology gets remapped
             if time_index_name in self.total_driver.index.names:
                 # sometimes when we have a linked service demand driver in a demand subsector it will come in on a fewer number of years than self.years, making this clean timeseries necesary
-                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,
-                                      time_index=time_index, lower=None, upper=None, interpolation_method='missing',
-                                      extrapolation_method='missing')
+                self.clean_timeseries(attr='total_driver', inplace=True, time_index_name=time_index_name,time_index=time_index, lower=None, upper=None, interpolation_method='linear_interpolation',extrapolation_method='missing')
                 #self.clean_timeseries(attr='total_driver_unitless', inplace=True, time_index_name=time_index_name,
                                       #time_index=time_index, lower=None, upper=None, interpolation_method='missing',
                                       #extrapolation_method='missing')
@@ -247,10 +293,7 @@ class DataObject(CsvDataObject):
                 driver_mapping_data_type = 'intensity'
             else:
                 driver_mapping_data_type = 'total'
-            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,
-                                                    current_geography=driver_geography,
-                                                    current_data_type=driver_mapping_data_type,
-                                                    fill_value=fill_value, filter_geo=filter_geo,remove_current_geography=False)
+            total_driver_current_geo = self.geo_map(current_geography, attr='total_driver', inplace=False,current_geography=driver_geography,current_data_type=driver_mapping_data_type,fill_value=fill_value, filter_geo=filter_geo,remove_current_geography=False)
             #total_driver_current_geo_unitless = self.geo_map(current_geography, attr='total_driver_unitless', inplace=False,
                                                     #current_geography=driver_geography,
                                                     #current_data_type=driver_mapping_data_type,
@@ -262,38 +305,42 @@ class DataObject(CsvDataObject):
                 else:
                     levels = [x for x in level_set]
                 if fill_value is np.nan:
-                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
+                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels,group_keys=False).apply(lambda x: x/x.sum())),
                                                expandable=(True, True), collapsible=(False, False),
                                                fill_value=fill_value),total_driver_current_geo],
-                                               expandable=(False, True), collapsible=(False, True))
+                                               expandable=(False, True), collapsible=(False, True),fill_value=np.nan)
                 else:
-                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
-                                               expandable=(True, True), collapsible=(False, False),
-                                               fill_value=fill_value),total_driver_current_geo],
-                                               expandable=(False, True), collapsible=(False, True)).replace([np.inf, np.nan, -np.nan], 0)
+                    # df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels).apply(lambda x: x/x.sum())),
+                    #                            expandable=(True, True), collapsible=(False, False),
+                    #                            fill_value=fill_value),total_driver_current_geo],
+                    #                            expandable=(False, True), collapsible=(False, True)).replace([np.inf, np.nan, -np.nan], 0)
+                    df_intensity = DfOper.divi([DfOper.mult((getattr(self, map_to), total_driver_current_geo.groupby(level=levels,group_keys=False).apply(lambda x: x/x.sum())),expandable=(True, True), collapsible=(False, False),fill_value=np.nan),
+                                                total_driver_current_geo],expandable=(False, True), collapsible=(False, True),fill_value=np.nan)
+                    # if all the values are nan replace with the fill value
+                    if np.all(np.isnan(df_intensity.values)):
+                        df_intensity = df_intensity.fillna(fill_value)
+
                 setattr(self, map_to, df_intensity)
 
             # Clean the timeseries as an intensity
             if fill_timeseries:
                 self.clean_timeseries(attr=map_to, inplace=True, time_index=time_index, interpolation_method=interpolation_method, extrapolation_method=extrapolation_method,lower=-np.inf)
-
             if current_data_type == 'total':
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo),fill_value=fill_value))
             else:
                 setattr(self, map_to, DfOper.mult((getattr(self, map_to), total_driver_current_geo), expandable=(True, False), collapsible=(False, True), fill_value=fill_value))
-
             if len(set(getattr(self,map_to).index.get_level_values(current_geography))) > len(set(getattr(self,map_to).index.get_level_values(driver_geography))):
                 setattr(self,map_to,remove_df_levels(getattr(self,map_to), driver_geography))
             elif len(set(getattr(self, map_to).index.get_level_values(current_geography))) < len(set(getattr(self, map_to).index.get_level_values(driver_geography))):
                 setattr(self, map_to, remove_df_levels(getattr(self, map_to), current_geography))
                 current_geography = driver_geography
-            elif current_geography!=driver_geography:
+            if current_geography!=driver_geography:
                 setattr(self, map_to, remove_df_levels(getattr(self, map_to), driver_geography))
-
+            setattr(self, map_to, self._add_missing_geographies(getattr(self, map_to),  current_geography=driver_geography, current_data_type='total', missing_intensity_geos=missing_intensity_geos, fill_value=fill_value, filter_geo=filter_geo))
             self.geo_map(converted_geography, attr=map_to, inplace=True, current_geography=current_geography, current_data_type='total', fill_value=fill_value, filter_geo=filter_geo)
-
             # we don't want to keep this around
             del self.total_driver
+            del self.current_geography
 
     def project(self, map_from='raw_values', map_to='values', additional_drivers=None,
                 interpolation_method='missing', extrapolation_method='missing',
@@ -347,12 +394,7 @@ class DataObject(CsvDataObject):
         if additional_drivers is not None:
             driverDFs += put_in_list(additional_drivers)
         # both map_from and map_to are the same
-        self.remap(map_from=map_to, map_to=map_to, drivers=driverDFs,
-                   time_index_name=time_index_name, fill_timeseries=fill_timeseries,
-                   interpolation_method=interpolation_method,
-                   extrapolation_method=extrapolation_method,
-                   converted_geography=converted_geography, current_geography=current_geography,
-                   current_data_type=current_data_type, fill_value=fill_value, filter_geo=filter_geo)
+        self.remap(map_from=map_to, map_to=map_to, drivers=driverDFs,time_index_name=time_index_name, fill_timeseries=fill_timeseries,interpolation_method=interpolation_method,extrapolation_method=extrapolation_method,converted_geography=converted_geography, current_geography=current_geography,current_data_type=current_data_type, fill_value=fill_value, filter_geo=filter_geo)
 
     def error_check_drivers(self, df, drivers):
         # check to see that for each index in drivers that is in df, that all the elements are the same
@@ -360,8 +402,6 @@ class DataObject(CsvDataObject):
         df_levels = {df.index.name: df.index.values} if df.index.nlevels==1 else dict(zip(df.index.names, df.index.levels))
         for driver in drivers:
             for index_name in driver.index.names:
-                if index_name == GeoMapper.demand_primary_geography:
-                    continue
                 if index_name in df_levels:
                     if index_name in ['year', 'vintage']:
                         overlapping = set(df_levels[index_name]) & set(driver.index.get_level_values(index_name))
@@ -370,5 +410,4 @@ class DataObject(CsvDataObject):
                     else:
                         missing_elements = set(df_levels[index_name]) - set(driver.index.get_level_values(index_name))
                         if len(missing_elements):
-                            pdb.set_trace()
                             raise ValueError('Index elements in the data that are not found in the driver. \n data: {} \n The following elements are missing from driver index "{}": {}'.format(df, index_name, missing_elements))

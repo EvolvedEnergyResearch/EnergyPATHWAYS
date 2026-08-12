@@ -98,6 +98,23 @@ class TimeSeries:
         return result
 
     @staticmethod
+    def fit_crested_logistic(x, y, newindex, **kwargs):
+        if len(x)==2:
+            part1 = TimeSeries.default_logistic(x, y, newindex)
+            x2 = np.array([x[1], x[1] + (x[1]-x[0])])
+            y2 = np.array([y[1], y[0]])
+            part2 = TimeSeries.default_logistic(x2, y2, newindex)
+            return part1 + part2 - y[1]
+        elif len(x)==3:
+            x1 = np.array([x[0], x[1]])
+            y1 = np.array([y[0], y[1]])
+            part1 = TimeSeries.default_logistic(x1, y1, newindex)
+            x2 = np.array([x[1], x[2]])
+            y2 = np.array([y[1], y[2]])
+            part2 = TimeSeries.default_logistic(x2, y2, newindex)
+            return part1 + part2 - y[1]
+
+    @staticmethod
     def fit_generalized_logistic(x, y, newindex, **kwargs):
         """Function to use leastsq_curve_fit to fit a general logistic curve to data x, y
         Tries to fit 50 times (default) before raising a runtime error
@@ -169,11 +186,11 @@ class TimeSeries:
         return fill
 
     @staticmethod
-    def fill_with_exponential_regression(x, y, newindex):
+    def fill_with_exponential_regression(x, y, newindex, intersect_with_last_point=False, return_exponential_params=False):
         """If growth_rate is None, extrapolates with NaN"""
         if np.all(y==0):
             # edge case where we don't want to throw an error, we just want to fill with zeros
-            return np.array([0] * len(newindex))
+            return np.array([0] * len(newindex)) if not return_exponential_params else (np.array([0] * len(newindex)), 0, 0)
 
         if np.any(y<0):
             if np.all(y<0):
@@ -185,9 +202,16 @@ class TimeSeries:
             negative = False
 
         if np.sum(y>0)<2:
-            raise ValueError("more than two non-zero points are needed for fitting with exponential: y={}, x={}".format(y, x))
+            print("more than two non-zero points are needed for fitting with exponential: y={}, x={}".format(y, x))
+            fill = TimeSeries.fill_with_nearest(x, y, newindex)
+            return fill if not return_exponential_params else (fill, 0, 0)
+            # raise ValueError("more than two non-zero points are needed for fitting with exponential: y={}, x={}".format(y, x))
 
         slope, intercept = np.polyfit(x[y>0], np.log(y[y>0]), 1, w=np.sqrt(y[y>0]))
+
+        if intersect_with_last_point:
+            # redo the intercept so that it passes through the last point
+            intercept = np.log(y[-1]) - slope * x[-1]
 
         # y = c * exp(k*x)
         fill = np.exp(intercept) * np.exp(slope*newindex)
@@ -199,7 +223,121 @@ class TimeSeries:
             firsty, lasty = fill_dict[firstx], fill_dict[lastx]
             growth_rate = (lasty / firsty) ** (1. / (lastx - firstx))
             fill = firsty * (growth_rate) ** (newindex - firstx)
-        return fill * (-1 if negative else 1)
+        fill = fill * (-1 if negative else 1)
+        return fill if not return_exponential_params else (fill, np.exp(intercept), slope)
+
+    @staticmethod
+    def bounded_exponential(x, y, new_index, bound, softness=10):
+        """
+        Fit an exponential function to data (x, y) and predict values for new_index.
+        Instead of a hard clip, the predictions are smoothly forced to asymptote
+        toward a lower and upper bound defined by ± `bound` fraction relative to the last y value.
+
+        Parameters:
+            bound : float, optional
+                Fractional bound relative to the last observed y value.
+                For example, 0.20 sets the allowable range to [y_last*(0.8), y_last*(1.2)].
+                Default is 0.20.
+            softness : float, optional
+                Controls the smoothness of the transition (in the same units as x). Default is 5.
+        """
+
+        def exp_func(x, a, b):
+            return a * np.exp(b * x)
+
+        # Obtain raw predictions
+        raw_preds, a, b = TimeSeries.fill_with_exponential_regression(x, y, new_index, intersect_with_last_point=True, return_exponential_params=True)
+        if b==0:
+            return raw_preds
+
+        bound = bound or 0.2
+        # softness = bound * 75
+        softness = np.abs(bound / b)
+
+        # Determine the domain boundaries
+        x_min = np.min(x)
+        x_max = np.max(x)
+
+        # Calculate bounds based on the last observed y value
+        y_min, y_max = exp_func(x_min, a, b), exp_func(x_max, a, b)
+        lower_bound = y_min * (1 - bound)
+        upper_bound = y_max * (1 + bound)
+
+        # Prepare the final predictions array
+        final_preds = np.empty_like(raw_preds)
+
+        # For new_index values within [x_min, x_max], use the raw model prediction.
+        in_domain = (new_index >= x_min) & (new_index <= x_max)
+        final_preds[in_domain] = raw_preds[in_domain]
+
+        # For new_index values greater than x_max (extrapolating forward)
+        forward = new_index > x_max
+        if np.any(forward):
+            # Distance beyond the maximum x value
+            d = new_index[forward] - x_max
+            final_preds[forward] = y_max + (upper_bound - y_max) * (1 - np.exp(-d / softness)) * np.sign(b)
+
+        # For new_index values less than x_min (extrapolating backward)
+        backward = new_index < x_min
+        if np.any(backward):
+            # Distance before the minimum x value
+            d = x_min - new_index[backward]
+            final_preds[backward] = y_min + (lower_bound - y_min) * (1 - np.exp(-d / softness)) * np.sign(b)
+            # Add so that the backward intersects with the first x value given
+            final_preds[backward] += (y[0] - final_preds[backward][-1])
+
+        return final_preds
+
+    @staticmethod
+    def sqrt_function(x, a, b):
+        return np.sqrt(x - a) + b
+
+    @staticmethod
+    def fit_sqrt_curve(x_data, y_data):
+        # Initial guess for the parameters [a, b]
+        #initial_guess = [1000.0, 1000.0]
+
+        epsilon = np.min(x_data) / 10
+        a_0 = np.min(x_data) - epsilon
+        b_0 = np.min(y_data) - np.sqrt(np.min(x_data) - a_0)
+        initial_guess = [a_0, b_0]
+
+        # Use curve_fit to find the best parameters a and b
+        params, covariance = optimize.curve_fit(TimeSeries.sqrt_function, x_data, y_data, p0=initial_guess)
+
+        # Extract the parameters
+        a, b = params
+        return a, b
+
+    @staticmethod
+    def fill_exponential_decline(x, y, newindex):
+        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+        # if the slope in negative, we can use the exponential regression method
+        if slope < 0:
+            return TimeSeries.fill_with_exponential_regression(x, y, newindex, intersect_with_last_point=True)
+        else:
+            # We need some other curve fit that doesn't grow exponentially. Try sqrt function
+            try:
+                max_y = max(y)
+                y_norm = y / max(y)
+                a, b = TimeSeries.fit_sqrt_curve(x, y_norm)
+                # adjust b so that the curve intercepts the last point
+                b = y_norm[-1] - np.sqrt(x[-1] - a)
+                return TimeSeries.sqrt_function(newindex, a, b) * max_y
+            except:
+                logging.debug("Could not fit sqrt curve, using nearest")
+                return TimeSeries.fill_with_nearest(x, y, newindex)
+
+    @staticmethod
+    def fill_exponential_decline_max_nearest(x, y, newindex):
+        slope, intercept, r_value, p_value, std_err = stats.linregress(x, y)
+
+        # if the slope in negative, we can use the exponential regression method
+        a =  TimeSeries.fill_with_exponential_regression(x, y, newindex, intersect_with_last_point=True)
+        b =  TimeSeries.fill_with_nearest(x, y, newindex)
+        return np.minimum(a,b)
+
 
     @staticmethod
     def fill_with_exponential_interpolation(x, y, newindex, growth_rate=None):
@@ -260,6 +398,8 @@ class TimeSeries:
             return TimeSeries.linear_regression_fill(x, y, newindex)
         elif method == 'logistic':
             return TimeSeries.fit_generalized_logistic(x, y, newindex, **kwargs)
+        elif method == 'crested_logistic':
+            return TimeSeries.fit_crested_logistic(x, y, newindex, **kwargs)
         elif method == 'cubic':
             return TimeSeries.spline_fill(x, y, newindex, k=3, s=0)
         elif method == 'quadratic':
@@ -270,6 +410,12 @@ class TimeSeries:
             return TimeSeries.fill_with_exponential_interpolation(x, y, newindex, kwargs.get('exp_growth_rate'))
         elif method == 'exponential_regression':
             return TimeSeries.fill_with_exponential_regression(x, y, newindex)
+        elif method == 'bounded_exponential_regression':
+            return TimeSeries.bounded_exponential(x, y, newindex, bound=kwargs.get('exp_growth_rate'))
+        elif method == 'exponential_decline':
+            return TimeSeries.fill_exponential_decline(x, y, newindex)
+        elif method == 'exponential_decline_max_nearest':
+            return TimeSeries.fill_exponential_decline_max_nearest(x, y, newindex)
         elif method == 'average' or method == 'mean':
             return TimeSeries.fill_with_average(x, y, newindex)
         elif method == 'decay_towards_linear_regression':
@@ -289,7 +435,7 @@ class TimeSeries:
                     interpolation_method = 'nearest'
             elif interpolation_method=='exponential_regression':
                 interpolation_method = 'nearest'
-            elif interpolation_method=='logistic':
+            elif interpolation_method=='logistic' or interpolation_method=='crested_logistic':
                 interpolation_method = 'nearest'
                 logging.debug('More than one x, y pair is needed for logistic regression, changed to nearest')
             elif interpolation_method is not None and interpolation_method != 'none':
@@ -300,7 +446,7 @@ class TimeSeries:
                     extrapolation_method = 'nearest'
             elif extrapolation_method=='exponential_regression':
                 extrapolation_method = 'nearest'
-            elif extrapolation_method=='logistic':
+            elif extrapolation_method=='logistic' or extrapolation_method=='crested_logistic':
                 extrapolation_method = 'nearest'
                 logging.debug('More than one x, y pair is needed for logistic regression, changed to nearest')
             elif extrapolation_method is not None and extrapolation_method != 'none':
@@ -323,6 +469,10 @@ class TimeSeries:
             if len(x) < 4:
                 # TODO: print to log file here
                 extrapolation_method = 'linear_interpolation'
+
+        if interpolation_method == 'crested_logistic' or extrapolation_method == 'crested_logistic':
+            if len(x)>3:
+                raise ValueError('crested_logistic with more than three points is not currently supported')
 
         if interpolation_method == 'decay_towards_linear_regression':
             raise ValueError('decay_towards_linear_regression is only supported for extrapolation, not interpolation')
@@ -391,12 +541,12 @@ class TimeSeries:
         
 
         group_levels = tuple([n for n in data.index.names if n != time_index_name])
-        data = data.groupby(level=group_levels).apply(TimeSeries._clean_multindex_helper,
-                                                      time_index_name=time_index_name,
-                                                      newindex=wholeindex,
-                                                      interpolation_method=interpolation_method,
-                                                      extrapolation_method=extrapolation_method,
-                                                      **kwargs)
+        data = data.groupby(level=group_levels, group_keys=False).apply(TimeSeries._clean_multindex_helper,
+                                                                      time_index_name=time_index_name,
+                                                                      newindex=wholeindex,
+                                                                      interpolation_method=interpolation_method,
+                                                                      extrapolation_method=extrapolation_method,
+                                                                      **kwargs)
 
         
         data = util.reindex_df_level_with_new_elements(data, time_index_name, newindex)
@@ -514,32 +664,66 @@ class TimeSeries:
 # pylab.plot(newindex, filled.values.flatten(), '.')
 # pylab.plot(x, y, '*')
 
-# import pylab
-# newindex = np.arange(2020, 2051)
-# x = np.array([2016, 2022, 2030, 2050])
-# y = np.array([0, .05, .3, .7])
+import pylab
+# newindex = np.arange(2015, 2051)
+# x = np.array([2017, 2046])
+# y = np.array([0, 1])
 # start = pd.DataFrame(y, index=x)
 # interpolation_method = 'logistic'
-# extrapolation_method = 'logistic'
+# extrapolation_method = 'nearest'
 # filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
-#
+
 # pylab.plot(newindex, filled.values.flatten(), '.')
 # pylab.plot(x, y, '*')
+# pylab.show()
 
 # decay_towards_linear_regression
 
-# newindex = np.arange(2000, 2051)
-# x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
-# y = np.array([0.01, 0.03, .1, 1, .8, .4])
-# # x = np.array([2020])
-# # y = np.array([0.716194956])
-# start = pd.DataFrame(y, index=x)
-# interpolation_method = 'exponential'
-# extrapolation_method = 'exponential'
-# filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
+# newindex = np.arange(1970, 2200)
+# x = np.array([1999,
+# 2001,
+# 2002,
+# 2003,
+# 2004,
+# 2005,
+# 2006,
+# 2007,
+# 2010,
+# 2012,
+# 2014,
+# 2016,
+# 2018,
+# 2020,])
 #
+# y = np.array([
+# 0.553577279,
+# 0.549047729,
+# 0.558222117,
+# 0.564607887,
+# 0.568321965,
+# 0.572596541,
+# 0.575929817,
+# 0.574768479,
+# 0.575325195,
+# 0.576022754,
+# 0.573489669,
+# 0.569772558,
+# 0.572867388,
+# 0.573614454,
+# ])
+#
+#
+#
+# data = pd.read_csv(r'C:\github\test\population.csv')
+# data = data.set_index('year')
+# newindex = np.arange(2022, 2081)
+# interpolation_method = 'quadratic'
+# extrapolation_method = 'nearest'
+# filled = TimeSeries.clean(data, newindex, interpolation_method, extrapolation_method, time_index_name='year')
+#
+# filled.to_clipboard()
 # pylab.plot(newindex, filled.values.flatten(), '.')
-# pylab.plot(x, y, '*')
+# pylab.plot(data.index, data.values.flatten(), '*')
 
 # newindex = np.arange(2000, 2051)
 # # x = np.array([2015, 2020, 2025, 2030, 2040, 2050])
@@ -643,3 +827,25 @@ class TimeSeries:
 # extrapolation_method = 'cubic'
 # newindex = np.arange(0, 48)
 # filled = TimeSeries.clean(data, newindex, interpolation_method, extrapolation_method, time_index_name='hour')
+
+
+# import pylab
+#
+# newindex = np.arange(2000, 2051)
+#
+# df = pd.read_csv(r'C:\github\DemandDrivers_JRC2021.csv')
+# 
+# df = df[df['name']=='other chemicals']
+# df = df[df['gau']=='de']
+#
+# x = df['year'].values
+# y = df['value'].values
+# # x = np.array([2020])
+# # y = np.array([0.716194956])
+# start = pd.DataFrame(y, index=x)
+# interpolation_method = 'linear_interpolation'
+# extrapolation_method = 'exponential_decline'
+# filled = TimeSeries.clean(start, newindex, interpolation_method, extrapolation_method)
+#
+# pylab.plot(newindex, filled.values.flatten(), '.')
+# pylab.plot(x, y, '*')

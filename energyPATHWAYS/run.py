@@ -70,7 +70,8 @@ def run(scenarios, load_demand=False, export_results=True, save_models=True, sha
             model.run(load_demand=load_demand,
                       export_results=export_results,
                       save_models=save_models,
-                      shape_owner=shape_owner)
+                      shape_owner=shape_owner,
+                      scenario_id=scenario)
 
             logging.info('EnergyPATHWAYS run for scenario {} successful!'.format(scenario))
             logging.info('Scenario calculation time {}'.format(str(datetime.timedelta(seconds=time.time() - scenario_start_time)).split('.')[0]))
@@ -98,13 +99,13 @@ def load_model(load_demand, scenario):
 
 
 if __name__ == "__main__":
-    workingdir = r'C:\github\rio_db_au\example'
+    workingdir = r'D:\EER Dropbox\Ryan Jones\Evolved Energy Research\Tools\EnergyPATHWAYS\EP Runs\nrel_sup3rcc\v1'
     os.chdir(workingdir)
-    scenario = ['reference']
+    scenario = ['central_ecearth3veg']
     run(scenario,
-    load_demand   = False,
+    load_demand   = True,
     export_results= True,
-    save_models   = True,
+    save_models   = False,
     shape_owner   = True,
     compile_mode  = False,
     )

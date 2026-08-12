@@ -64,6 +64,47 @@ class DemandDrivers(DataObject):
                   interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
                   other_index_2=other_index_2, unit_base=unit_base, unit_prefix=unit_prefix)
 
+class DemandEnergyBenchmarks(DataObject):
+    _instances_by_key = {}
+    _table_name = "DemandEnergyBenchmarks"
+    _key_col = None
+    _cols = ["extrapolation_growth", "extrapolation_method", "geography", "geography_map_key",
+             "interpolation_method", "unit"]
+    _df_cols = ["sector", "final_energy", "gau", "year", "value", "sensitivity"]
+    _df_filters = []
+    _data_table_name = None
+
+    def __init__(self, scenario):
+        DataObject.__init__(self, None, scenario)
+
+        DemandEnergyBenchmarks._instances_by_key[self._key] = self
+
+        self.extrapolation_growth = None
+        self.extrapolation_method = None
+        self.geography = None
+        self.geography_map_key = None
+        self.interpolation_method = None
+        self.unit = None
+
+    def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
+                 geography_map_key=None, interpolation_method=None, unit=None):
+        self.check_scenario(scenario)
+
+        self.extrapolation_growth = extrapolation_growth
+        self.extrapolation_method = extrapolation_method
+        self.geography = geography
+        self.geography_map_key = geography_map_key
+        self.interpolation_method = interpolation_method
+        self.unit = unit
+
+    def init_from_tuple(self, tup, scenario, **kwargs):    
+        (geography, geography_map_key, interpolation_method, extrapolation_method,
+         extrapolation_growth, unit,) = tup
+
+        self.set_args(scenario, extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
+                  geography=geography, geography_map_key=geography_map_key,
+                  interpolation_method=interpolation_method, unit=unit)
+
 class DemandEnergyDemands(DataObject):
     _instances_by_key = {}
     _table_name = "DemandEnergyDemands"
@@ -602,8 +643,8 @@ class DemandServiceDemandMeasures(DataObject):
     _cols = ["extrapolation_growth", "extrapolation_method", "geography", "geography_map_key",
              "input_type", "interpolation_method", "lifetime_variance", "max_lifetime",
              "mean_lifetime", "min_lifetime", "name", "other_index_1", "other_index_2",
-             "stock_decay_function", "subsector", "unit"]
-    _df_cols = ["gau", "value", "oth_2", "oth_1", "year"]
+             "stock_decay_function", "subsector"]
+    _df_cols = ["unit", "gau", "value", "oth_2", "oth_1", "year"]
     _df_filters = []
     _data_table_name = None
 
@@ -627,13 +668,12 @@ class DemandServiceDemandMeasures(DataObject):
         self.other_index_2 = None
         self.stock_decay_function = None
         self.subsector = None
-        self.unit = None
 
     def set_args(self, scenario, extrapolation_growth=None, extrapolation_method=None, geography=None,
                  geography_map_key=None, input_type=None, interpolation_method=None,
                  lifetime_variance=None, max_lifetime=None, mean_lifetime=None, min_lifetime=None,
                  name=None, other_index_1=None, other_index_2=None, stock_decay_function=None,
-                 subsector=None, unit=None):
+                 subsector=None):
         self.check_scenario(scenario)
 
         self.extrapolation_growth = extrapolation_growth
@@ -651,10 +691,9 @@ class DemandServiceDemandMeasures(DataObject):
         self.other_index_2 = other_index_2
         self.stock_decay_function = stock_decay_function
         self.subsector = subsector
-        self.unit = unit
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
-        (name, subsector, input_type, unit, geography, other_index_1, other_index_2,
+        (name, subsector, input_type, geography, other_index_1, other_index_2,
          interpolation_method, extrapolation_method, extrapolation_growth, stock_decay_function,
          min_lifetime, max_lifetime, mean_lifetime, lifetime_variance, geography_map_key,) = tup
 
@@ -663,7 +702,7 @@ class DemandServiceDemandMeasures(DataObject):
                   interpolation_method=interpolation_method, lifetime_variance=lifetime_variance,
                   max_lifetime=max_lifetime, mean_lifetime=mean_lifetime, min_lifetime=min_lifetime,
                   name=name, other_index_1=other_index_1, other_index_2=other_index_2,
-                  stock_decay_function=stock_decay_function, subsector=subsector, unit=unit)
+                  stock_decay_function=stock_decay_function, subsector=subsector)
 
 class DemandServiceDemandMeasuresCost(DataObject):
     _instances_by_key = {}
@@ -1534,7 +1573,8 @@ class DemandTechsInstallationCost(DataObject):
     _key_col = 'demand_technology'
     _cols = ["currency", "currency_year", "definition", "demand_technology", "extrapolation_growth",
              "extrapolation_method", "geography", "interpolation_method", "is_levelized",
-             "new_or_replacement", "other_index_1", "other_index_2", "reference_tech"]
+             "new_or_replacement", "other_index_1", "other_index_2", "reference_tech",
+             "reference_tech_operation"]
     _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
     _df_filters = ["new_or_replacement"]
     _data_table_name = None
@@ -1557,11 +1597,13 @@ class DemandTechsInstallationCost(DataObject):
         self.other_index_1 = None
         self.other_index_2 = None
         self.reference_tech = None
+        self.reference_tech_operation = None
 
     def set_args(self, scenario, currency=None, currency_year=None, definition=None, demand_technology=None,
                  extrapolation_growth=None, extrapolation_method=None, geography=None,
                  interpolation_method=None, is_levelized=None, new_or_replacement=None,
-                 other_index_1=None, other_index_2=None, reference_tech=None):
+                 other_index_1=None, other_index_2=None, reference_tech=None,
+                 reference_tech_operation=None):
         self.check_scenario(scenario)
 
         self.currency = currency
@@ -1577,18 +1619,20 @@ class DemandTechsInstallationCost(DataObject):
         self.other_index_1 = other_index_1
         self.other_index_2 = other_index_2
         self.reference_tech = reference_tech
+        self.reference_tech_operation = reference_tech_operation
 
     def init_from_tuple(self, tup, scenario, **kwargs):    
         (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
          currency, currency_year, is_levelized, interpolation_method, extrapolation_method,
-         extrapolation_growth, new_or_replacement,) = tup
+         extrapolation_growth, reference_tech_operation, new_or_replacement,) = tup
 
         self.set_args(scenario, currency=currency, currency_year=currency_year, definition=definition,
                   demand_technology=demand_technology, extrapolation_growth=extrapolation_growth,
                   extrapolation_method=extrapolation_method, geography=geography,
                   interpolation_method=interpolation_method, is_levelized=is_levelized,
                   new_or_replacement=new_or_replacement, other_index_1=other_index_1,
-                  other_index_2=other_index_2, reference_tech=reference_tech)
+                  other_index_2=other_index_2, reference_tech=reference_tech,
+                  reference_tech_operation=reference_tech_operation)
 
 class DemandTechsMainEfficiency(DataObject):
     _instances_by_key = {}
@@ -1841,6 +1885,59 @@ class DemandTechsServiceLink(DataObject):
                   interpolation_method=interpolation_method, name=name, other_index_1=other_index_1,
                   other_index_2=other_index_2, reference=reference, sensitivity=sensitivity,
                   service_link=service_link)
+
+class DemandTechsUtilityFactor(DataObject):
+    _instances_by_key = {}
+    _table_name = "DemandTechsUtilityFactor"
+    _key_col = 'demand_technology'
+    _cols = ["definition", "demand_technology", "extrapolation_growth", "extrapolation_method",
+             "geography", "geography_map_key", "interpolation_method", "other_index_1",
+             "other_index_2", "reference_tech"]
+    _df_cols = ["vintage", "gau", "value", "oth_2", "oth_1", "sensitivity"]
+    _df_filters = []
+    _data_table_name = None
+
+    def __init__(self, demand_technology, scenario):
+        DataObject.__init__(self, demand_technology, scenario)
+
+        DemandTechsUtilityFactor._instances_by_key[self._key] = self
+
+        self.definition = None
+        self.demand_technology = demand_technology
+        self.extrapolation_growth = None
+        self.extrapolation_method = None
+        self.geography = None
+        self.geography_map_key = None
+        self.interpolation_method = None
+        self.other_index_1 = None
+        self.other_index_2 = None
+        self.reference_tech = None
+
+    def set_args(self, scenario, definition=None, demand_technology=None, extrapolation_growth=None,
+                 extrapolation_method=None, geography=None, geography_map_key=None,
+                 interpolation_method=None, other_index_1=None, other_index_2=None, reference_tech=None):
+        self.check_scenario(scenario)
+
+        self.definition = definition
+        self.demand_technology = demand_technology
+        self.extrapolation_growth = extrapolation_growth
+        self.extrapolation_method = extrapolation_method
+        self.geography = geography
+        self.geography_map_key = geography_map_key
+        self.interpolation_method = interpolation_method
+        self.other_index_1 = other_index_1
+        self.other_index_2 = other_index_2
+        self.reference_tech = reference_tech
+
+    def init_from_tuple(self, tup, scenario, **kwargs):    
+        (demand_technology, definition, reference_tech, geography, other_index_1, other_index_2,
+         interpolation_method, extrapolation_method, extrapolation_growth, geography_map_key,) = tup
+
+        self.set_args(scenario, definition=definition, demand_technology=demand_technology,
+                  extrapolation_growth=extrapolation_growth, extrapolation_method=extrapolation_method,
+                  geography=geography, geography_map_key=geography_map_key,
+                  interpolation_method=interpolation_method, other_index_1=other_index_1,
+                  other_index_2=other_index_2, reference_tech=reference_tech)
 
 class DispatchFeedersAllocation(DataObject):
     _instances_by_key = {}

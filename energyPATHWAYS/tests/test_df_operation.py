@@ -76,7 +76,7 @@ class TestDfOperation(unittest.TestCase):
     def test_expand(self):
         # here b has an extra level that is not in c, because c is an intensity
         # we can expand it over the missing level "vintage" in b
-        c_inten = self.c_total.groupby(level=['census_division', 'energy_type']).transform(lambda x: x / x.sum())
+        c_inten = self.c_total.groupby(level=['census_division', 'energy_type'],group_keys=False).transform(lambda x: x / x.sum())
         df = util.DfOper.mult((c_inten, self.b_total), expandable=(True, False), collapsible=(False, True))
         npt.assert_almost_equal(df.sum().sum(), 73308503.39194776, decimal=6)
 

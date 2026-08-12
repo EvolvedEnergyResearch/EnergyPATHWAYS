@@ -189,13 +189,17 @@ class SalesShare(object):
     def calculate(self, vintages, years):
         self.vintages = vintages
         self.years = years
-        self.remap(time_index_name='vintage', converted_geography=self.primary_geography)
+        try:
+            self.remap(time_index_name='vintage', converted_geography=self.primary_geography)
+        except:
+            pdb.set_trace()
         self.values = util.remove_df_levels(self.values, cfg.removed_demand_levels, agg_function='mean')
         
     def reconcile_with_stock_levels(self, needed_sales_share_levels, needed_sales_share_names):
         if self.input_type == 'intensity':
             if not set(self.values.index.names).issubset(needed_sales_share_names):
                 # we can't have more specificity in sales share than in stock
+                import pdb; pdb.set_trace()
                 raise ValueError('Sales share expressed as an intensity cannot have levels not in stock')
             # pick up extra levels
             self.values = util.expand_multi(self.values, needed_sales_share_levels,

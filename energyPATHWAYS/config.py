@@ -9,6 +9,7 @@ from collections import defaultdict
 import datetime
 import logging
 import sys
+from pyomo.opt import SolverFactory
 import pdb
 import os
 import platform
@@ -21,6 +22,7 @@ warnings.simplefilter("ignore")
 
 # core inputs
 workingdir = None
+scenario_name = None
 active_subsectors = None
 ep2rio_final_energy_shapes = None
 rio_flex_load_subsectors = None
@@ -140,7 +142,7 @@ def init_removed_levels():
 
 def init_output_levels():
     global output_demand_levels
-    output_demand_levels = ['year', 'vintage', 'demand_technology', 'air pollution', geomapper.GeoMapper.demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement']
+    output_demand_levels = ['year', 'vintage', 'demand_technology', 'air pollution', geomapper.GeoMapper.demand_primary_geography, 'sector', 'subsector', 'final_energy','other_index_1','other_index_2','cost_type','new/replacement','measure']
 
     levels_to_remove = set([x[0][4:] for x in _ConfigParser.items('DEMAND_OUTPUT_DETAIL') if x[1].lower()!='true'])
     if not getParamAsBoolean('dod_new_replacement', section='DEMAND_OUTPUT_DETAIL'):
@@ -160,11 +162,12 @@ def table_dict(table_name, columns=['id', 'name'], append=False,
 
 
 def init_output_parameters():
-    global currency_name, output_currency, rio_standard_energy_unit, rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit, \
+    global currency_name,currency_year, output_currency, rio_standard_energy_unit, rio_standard_mass_unit, rio_standard_distance_unit, rio_standard_volume_unit, \
        rio_years, active_subsectors, rio_flex_load_subsectors, rio_optimizable_subsectors, ep2rio_final_energy_shapes
 
     currency_name = getParam('currency_name', section='UNITS')
-    output_currency = getParam('currency_year', section='UNITS') + ' ' + currency_name
+    currency_year = getParam('currency_year', section='UNITS')
+    output_currency = currency_year + ' ' + currency_name
     active_subsectors = [g.strip() for g in getParam('active_subsectors', section='RIO').split('||') if len(g)]
     ep2rio_final_energy_shapes = [g.strip() for g in getParam('ep2rio_final_energy_shapes', section='RIO').split(',') if len(g)]
     rio_flex_load_subsectors = [g.strip() for g in getParam('rio_flex_load_subsectors', section='RIO').split('||') if len(g)]
